@@ -15,15 +15,16 @@ websocket_init(_TransportName, Req, _Opts) ->
 	{ok, Req, undefined_state}.
 
 websocket_handle({text, Msg}, Req, State) ->
-  io:format("~ts", [Msg]),
+  io:format("~ts\n", [Msg]),
   [Type, Cmd] = jiffy:decode(Msg, [return_maps]),
-  TextResult = case Type of
+  Respond = case Type of
     <<"login">> -> login(Cmd);
-    <<"send_sms">> -> send_sms(Cmd);
-    <<"send_multi_sms">> -> send_multi_sms(Cmd);
-    <<"status_sms">> -> status_sms(Cmd)
+    <<"logout">> -> logout(Cmd);
+    <<"send_sms">> -> force_login(Cmd, fun send_sms/1);
+    <<"send_multi_sms">> -> force_login(Cmd, fun send_multi_sms/1);
+    <<"status_sms">> -> force_login(Cmd, fun status_sms/1)
   end,
-  {reply, {text, TextResult}, Req, State};
+  {reply, {text, jiffy:encode([Type|Respond])}, Req, State};
 
 websocket_handle(_Data, Req, State) ->
 	{ok, Req, State}.
@@ -40,37 +41,29 @@ websocket_terminate(_Reason, _Req, _State) ->
 %% api for ws client
 %% --------------------------
 login(#{<<"account">> := Account, <<"password">> := Pass}) ->
-  Users = #{
-    <<"gonghao">> => <<"123">>,
-    <<"xiaoliao">> => <<"456">>
-  },
-  case maps:get(Account, Users, undefined) =:= Pass of
+  case res_account:check_pass(Account, Pass) of
     true ->
-      jiffy:encode([login, ok]);
+      Token = res_account:generate_token(Account),
+      [ok, Token];
     false ->
-      jiffy:encode([login, failed])
+      [error, invalid_account_or_password]
   end.
 
-send_sms(#{<<"sms">> := <<"single">>, <<"to">> := To, <<"content">> := Content}) ->
-  case sms:send(To, Content) of
-    {ok, BatchId}   ->
-      jiffy:encode([send_sms, ok]);
-    {error, Reason} ->
-      jiffy:encode([send_sms, failed])
+logout(#{<<"token">> := Token}) ->
+  res_account:delete_token(Token),
+  [ok].
+
+force_login(#{<<"token">> := Token}=Cmd, Fun) ->
+  case res_account:token_info(Token) of
+    {ok, _} -> Fun(Cmd);
+    _ -> [erorr, not_login]
   end.
 
-send_multi_sms(#{<<"sms">> := <<"multi">>, <<"to">> := To, <<"content">> := Content}) ->
-  case sms:send_multi(To, Content) of
-    {ok, BatchId}   ->
-      jiffy:encode([send_sms, ok]);
-    {error, Reason} ->
-      jiffy:encode([send_sms, failed])
-  end.
+send_sms(#{<<"to">> := To, <<"content">> := Content}) ->
+  sms:send(To, Content).
 
-status_sms(#{<<"sms">> := <<"status">>, <<"batchid">> := BatchId}) ->
-  case sms:status(BatchId) of
-    {ok, _}         ->
-      jiffy:encode([status_sms, ok]);
-    {error, Reason} ->
-      jiffy:encode([status_sms, failed])
-  end.
+send_multi_sms(#{<<"to">> := To, <<"content">> := Content}) ->
+  sms:send_multi(To, Content).
+
+status_sms(#{<<"batchid">> := BatchId}) ->
+  sms:status(BatchId).
