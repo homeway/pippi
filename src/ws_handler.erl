@@ -20,6 +20,7 @@ websocket_handle({text, Msg}, Req, State) ->
   Respond = case Type of
     <<"login">> -> login(Cmd);
     <<"logout">> -> logout(Cmd);
+    <<"check_token">> -> check_token(Cmd);
     <<"send_sms">> -> force_login(Cmd, fun send_sms/1);
     <<"send_multi_sms">> -> force_login(Cmd, fun send_multi_sms/1);
     <<"status_sms">> -> force_login(Cmd, fun status_sms/1)
@@ -52,6 +53,12 @@ login(#{<<"account">> := Account, <<"password">> := Pass}) ->
 logout(#{<<"token">> := Token}) ->
   res_account:delete_token(Token),
   [ok].
+
+check_token(#{<<"token">> := Token}) ->
+  case res_account:token_info(Token) of
+    {ok, _} -> [ok];
+    _ -> [erorr, not_login]
+  end.
 
 force_login(#{<<"token">> := Token}=Cmd, Fun) ->
   case res_account:token_info(Token) of
