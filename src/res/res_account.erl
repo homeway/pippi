@@ -39,7 +39,7 @@ get(AccountName) ->
 
 delete(Id) ->
     Item = {account, Id},
-    {atomic, ok} = mnesia:transaction(mnesia:delete(Item)).
+    {atomic, ok} = mnesia:transaction(fun()-> mnesia:delete(Item) end).
 
 update(Id, Account) ->
     Cond = qlc:q([
@@ -48,9 +48,9 @@ update(Id, Account) ->
     case mnesia:transaction(fun()->qlc:e(Cond) end) of
         {atomic, []} ->
             {error, not_exist};
-        {atomic, [{_, Id, Data0}|_]} ->
+        {atomic, [Data0|_]} ->
             Item = {account, Id, maps:merge(Data0, Account)},
-            mnesia:transaction(mnesia:write(Item));
+            mnesia:transaction(fun()-> mnesia:write(Item) end);
         Error ->
             Error
     end.
