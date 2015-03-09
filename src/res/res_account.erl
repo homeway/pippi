@@ -64,8 +64,8 @@ all() ->
 check_pass(Name0, Pass0) ->
     Cond = qlc:q([
         Name1 || {_, _, #{name:=Name1, pass:=Pass1}} <- mnesia:table(account),
-        Name0=:=Name1,
-        Pass0=:=Pass1]),
+        ss_convert:to_binary(Name0)=:=ss_convert:to_binary(Name1),
+        ss_convert:to_binary(Pass0)=:=ss_convert:to_binary(Pass1)]),
     {atomic, R} = mnesia:transaction(fun() -> qlc:e(Cond) end),
     length(R) > 0.
 
