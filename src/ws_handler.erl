@@ -87,9 +87,9 @@ send_multi_sms(Item0) ->
   #{<<"code">> := Code, <<"respond">> := Respond} = Item,
   [Code, Respond].
 
-resend_multi_sms(#{<<"key">> := Key}) ->
+resend_multi_sms(#{<<"key">> := Key, <<"token">> := Token}) ->
   [{_, _, Item0}|_] = res_sms_records:get(Key),
-  Item = send_multi(Item0),
+  Item = send_multi(Item0#{<<"token">> => Token}),
   res_sms_records:update(Key, Item),
   #{<<"code">> := Code, <<"respond">> := Respond} = Item,
   [Code, Respond].
