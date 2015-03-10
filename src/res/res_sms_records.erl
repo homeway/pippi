@@ -32,4 +32,6 @@ all() ->
     Tab = sms_records,
     Cond = qlc:q([X || X <- mnesia:table(Tab)]),
     {atomic, R} = mnesia:transaction(fun()->qlc:e(Cond) end),
-    R.
+    lists:sort(fun({_, _, #{created_at:=C1}}, {_, _, #{created_at:=C2}}) ->
+        C1 > C2
+    end, R).
