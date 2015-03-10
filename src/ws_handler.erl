@@ -24,6 +24,7 @@ websocket_handle({text, Msg}, Req, State) ->
     <<"send_sms">> -> force_login(Cmd, fun send_sms/1);
     <<"sms_records">> -> force_login(Cmd, fun sms_records/1);
     <<"send_multi_sms">> -> force_login(Cmd, fun send_multi_sms/1);
+    <<"resend_multi_sms">> -> force_login(Cmd, fun resend_multi_sms/1);
     <<"status_sms">> -> force_login(Cmd, fun status_sms/1)
   end,
   {reply, {text, jiffy:encode([Type|Respond])}, Req, State};
@@ -70,16 +71,17 @@ force_login(#{<<"token">> := Token}=Cmd, Fun) ->
 send_sms(#{<<"to">> := To,  <<"content">> := Content}) ->
   {Code, Res} = sms:send(To, Content),[Code, Res].
 
-send_multi_sms(#{<<"token">> := Token, <<"contacts">> := Contacts, <<"content">> := Content} = Item0) ->
-  To = [Tel || #{tel := Tel} <- Contacts],
-  [Code, Respond] = case sms:send_multi(To, Content) of
-    {ok, BatchId} -> [ok, BatchId];
-    {error, timeout} -> [error, <<"短信网关访问超时"/utf8>>];
-    {error, Reason} -> [error, Reason]
-  end,
-  {ok, Account} = res_account:token_info(Token),
-  Item = Item0#{<<"account">> => Account, <<"code">> => Code, <<"respond">> => Respond},
+send_multi_sms(Item0) ->
+  Item = send_multi(Item0),
   res_sms_records:insert(Item),
+  #{<<"code">> := Code, <<"respond">> := Respond} = Item,
+  [Code, Respond].
+
+resend_multi_sms(#{<<"key">> := Key}) ->
+  [{ok, {_, _, Item0}}|_] = res_sms_records:get(Key),
+  Item = send_multi(Item0),
+  res_sms_records:update(Key, Item),
+  #{<<"code">> := Code, <<"respond">> := Respond} = Item,
   [Code, Respond].
 
 status_sms(#{<<"batchid">> := BatchId}) ->
@@ -88,4 +90,15 @@ status_sms(#{<<"batchid">> := BatchId}) ->
 sms_records(#{<<"token">> := _Token}) ->
   Res = [R#{key=>Key} || {_, Key, R} <- res_sms_records:all()],
   [ok, Res].
+
+send_multi(Item) ->
+  #{<<"token">> := Token, <<"contacts">> := Contacts, <<"content">> := Content} = Item,
+  To = [Tel || #{tel := Tel} <- Contacts],
+  [Code, Respond] = case sms:send_multi(To, Content) of
+    {ok, BatchId} -> [ok, BatchId];
+    {error, timeout} -> [error, <<"短信网关访问超时"/utf8>>];
+    {error, Reason} -> [error, Reason]
+  end,
+  {ok, Account} = res_account:token_info(Token),
+  Item#{<<"account">> => Account, <<"code">> => Code, <<"respond">> => Respond}.
 
