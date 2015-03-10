@@ -17,17 +17,22 @@ websocket_init(_TransportName, Req, _Opts) ->
 websocket_handle({text, Msg}, Req, State) ->
   io:format("~ts\n", [Msg]),
   [Type, Cmd] = jiffy:decode(Msg, [return_maps]),
-  Respond = case Type of
-    <<"login">> -> login(Cmd);
-    <<"logout">> -> logout(Cmd);
-    <<"check_token">> -> check_token(Cmd);
-    <<"send_sms">> -> force_login(Cmd, fun send_sms/1);
-    <<"sms_records">> -> force_login(Cmd, fun sms_records/1);
-    <<"send_multi_sms">> -> force_login(Cmd, fun send_multi_sms/1);
-    <<"resend_multi_sms">> -> force_login(Cmd, fun resend_multi_sms/1);
-    <<"status_sms">> -> force_login(Cmd, fun status_sms/1)
-  end,
-  {reply, {text, jiffy:encode([Type|Respond])}, Req, State};
+  Pid = self(),
+  spawn(fun() ->
+    Respond = case Type of
+      <<"login">> -> login(Cmd);
+      <<"logout">> -> logout(Cmd);
+      <<"check_token">> -> check_token(Cmd);
+      <<"send_sms">> -> force_login(Cmd, fun send_sms/1);
+      <<"sms_records">> -> force_login(Cmd, fun sms_records/1);
+      <<"send_multi_sms">> -> force_login(Cmd, fun send_multi_sms/1);
+      <<"resend_multi_sms">> -> force_login(Cmd, fun resend_multi_sms/1);
+      <<"status_sms">> -> force_login(Cmd, fun status_sms/1)
+    end,
+    erlang:display([Type|Respond]),
+    Pid ! {client, jiffy:encode([Type|Respond])}
+  end),
+  {reply, {text, jiffy:encode([ok, procesing, Type])}, Req, State};
 
 websocket_handle(_Data, Req, State) ->
 	{ok, Req, State}.
@@ -35,7 +40,12 @@ websocket_handle(_Data, Req, State) ->
 websocket_info({timeout, _Ref, Msg}, Req, State) ->
 	erlang:start_timer(1000, self(), jiffy:encode([heart, ok])),
 	{reply, {text, Msg}, Req, State};
+websocket_info({client, Msg}, Req, State) ->
+  erlang:display("........client"),
+  {reply, {text, Msg}, Req, State};
 websocket_info(_Info, Req, State) ->
+  erlang:display("........info"),
+  erlang:display(Req),
 	{ok, Req, State}.
 
 websocket_terminate(_Reason, _Req, _State) ->
@@ -78,7 +88,7 @@ send_multi_sms(Item0) ->
   [Code, Respond].
 
 resend_multi_sms(#{<<"key">> := Key}) ->
-  [{ok, {_, _, Item0}}|_] = res_sms_records:get(Key),
+  [{_, _, Item0}|_] = res_sms_records:get(Key),
   Item = send_multi(Item0),
   res_sms_records:update(Key, Item),
   #{<<"code">> := Code, <<"respond">> := Respond} = Item,
