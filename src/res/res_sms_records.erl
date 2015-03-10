@@ -8,7 +8,7 @@ init_tables() ->
         [{disc_copies, [node()]}, {attributes, [id, data]}]).
 
 insert(Record) ->
-    Item = {sms_records, ss_utils:uuid(), Record#{created_at => now()}},
+    Item = {sms_records, ss_utils:uuid(), Record#{created_at => ss_time:now_to_human()}},
     mnesia:transaction(fun()->mnesia:write(Item) end).
 
 get(Id) ->
@@ -21,7 +21,7 @@ get(Id) ->
     R.
 
 update(Id, Record) ->
-    Item = {sms_records, Id, Record#{lastmodified_at => now()}},
+    Item = {sms_records, Id, Record#{lastmodified_at => ss_time:now_to_human()}},
     mnesia:transaction(fun()->mnesia:write(Item) end).
 
 delete(Id) ->
