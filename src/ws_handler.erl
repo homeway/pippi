@@ -22,6 +22,7 @@ websocket_handle({text, Msg}, Req, State) ->
     <<"logout">> -> logout(Cmd);
     <<"check_token">> -> check_token(Cmd);
     <<"send_sms">> -> force_login(Cmd, fun send_sms/1);
+    <<"sms_records">> -> force_login(Cmd, fun sms_records/1);
     <<"send_multi_sms">> -> force_login(Cmd, fun send_multi_sms/1);
     <<"status_sms">> -> force_login(Cmd, fun status_sms/1)
   end,
@@ -82,3 +83,8 @@ send_multi_sms(#{<<"contacts">> := Contacts, <<"content">> := Content} = Item0) 
 
 status_sms(#{<<"batchid">> := BatchId}) ->
   {Code, Res} = sms:status(BatchId), [Code, Res].
+
+sms_records(#{<<"token">> := _Token}) ->
+  Res = [R#{key=>Key} || {_, Key, R} <- res_sms_records:all()],
+  [ok, Res].
+
