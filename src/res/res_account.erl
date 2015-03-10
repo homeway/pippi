@@ -1,12 +1,8 @@
 %% -*- mode: nitrogen -*-
 -module(res_account).
--export([init_tables/0, insert/1, all/0, get/1, delete/1, update/2, check_pass/2, to_test/0]).
+-export([init_tables/0, insert/1, all/0, get/1, delete/1, update/2, check_pass/2]).
 -export([generate_token/1, token_info/1, delete_token/1]).
 -include_lib("stdlib/include/qlc.hrl").
-
--record(account, {name, email}).
-to_test() ->
-    erlang:display({record_info, record_info(fields, account)}).
 
 %% There is no record here, use map() to store data in mnesia
 %% so we create table directly use mnesia:create_table(TableName, [{attributes, []}])
@@ -18,13 +14,10 @@ to_test() ->
 %% {online, token(), #{account_name()}}
 
 init_tables() ->
-    mnesia:create_schema([node()]),
-    mnesia:start(),
     mnesia:create_table(account,
         [{disc_copies, [node()]}, {attributes, [id, data]}]),
     mnesia:create_table(online,
-        [{ram_copies, [node()]}, {attributes, [token, data]}]),
-    mnesia:stop().
+        [{ram_copies, [node()]}, {attributes, [token, data]}]).
 
 insert(Account) ->
     Item = {account, ss_utils:uuid(), Account},

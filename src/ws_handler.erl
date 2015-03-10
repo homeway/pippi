@@ -66,11 +66,19 @@ force_login(#{<<"token">> := Token}=Cmd, Fun) ->
     _ -> [erorr, not_login]
   end.
 
-send_sms(#{<<"to">> := To, <<"content">> := Content}) ->
-  sms:send(To, Content).
+send_sms(#{<<"to">> := To,  <<"content">> := Content}) ->
+  {Code, Res} = sms:send(To, Content),[Code, Res].
 
-send_multi_sms(#{<<"to">> := To, <<"content">> := Content}) ->
-  sms:send_multi(To, Content).
+send_multi_sms(#{<<"contacts">> := Contacts, <<"content">> := Content} = Item0) ->
+  To = [Tel || #{tel := Tel} <- Contacts],
+  [Code, Respond] = case sms:send_multi(To, Content) of
+    {ok, BatchId} -> [ok, BatchId];
+    {error, timeout} -> [error, <<"短信网关访问超时"/utf8>>];
+    {error, Reason} -> [error, Reason]
+  end,
+  Item = Item0#{<<"code">> => Code, <<"respond">> => Respond},
+  res_sms_records:insert(Item),
+  [Code, Respond].
 
 status_sms(#{<<"batchid">> := BatchId}) ->
-  sms:status(BatchId).
+  {Code, Res} = sms:status(BatchId), [Code, Res].

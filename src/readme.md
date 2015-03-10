@@ -1,0 +1,10 @@
+数据库创建
+========
+请在shell中执行以下数据库创建命令
+```
+    mnesia:create_schema([node()]).
+    mnesia:start().
+    res_account:init_tables().
+    res_sms_records:init_tables().
+    mnesia:stop().
+```

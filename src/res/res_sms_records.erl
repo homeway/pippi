@@ -1,0 +1,35 @@
+-module(res_sms_records).
+-export([init_tables/0]).
+-export([insert/1, get/1, update/2, delete/1, all/0]).
+-include_lib("stdlib/include/qlc.hrl").
+
+init_tables() ->
+    mnesia:create_table(sms_records,
+        [{disc_copies, [node()]}, {attributes, [id, data]}]).
+
+insert(Record) ->
+    Item = {sms_records, ss_utils:uuid(), Record#{created_at => now()}},
+    mnesia:transaction(fun()->mnesia:write(Item) end).
+
+get(Id) ->
+    Tab = sms_records,
+    Cond = qlc:q([
+        X || {_, Id0, _} = X <- mnesia:table(Tab),
+        Id =:= Id0
+    ]),
+    {atomic, R} = mnesia:transaction(fun()->qlc:e(Cond) end),
+    R.
+
+update(Id, Record) ->
+    Item = {sms_records, Id, Record#{lastmodified_at => now()}},
+    mnesia:transaction(fun()->mnesia:write(Item) end).
+
+delete(Id) ->
+    Item = {sms_records, Id},
+    mnesia:transaction(fun()->mnesia:delete(Item) end).
+
+all() ->
+    Tab = sms_records,
+    Cond = qlc:q([X || X <- mnesia:table(Tab)]),
+    {atomic, R} = mnesia:transaction(fun()->qlc:e(Cond) end),
+    R.
