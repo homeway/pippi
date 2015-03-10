@@ -8,11 +8,13 @@ init_tables() ->
         [{disc_copies, [node()]}, {attributes, [id, data]}]).
 
 insert(Record) ->
-    Item = {sms_records, ss_utils:uuid(), Record#{
+    Id = ss_utils:uuid(),
+    Item = {sms_records, Id, Record#{
         created_at => ss_time:now_to_human(),
         lastmodified_at => ss_time:now_to_human()
     }},
-    mnesia:transaction(fun()->mnesia:write(Item) end).
+    {atomic, ok} = mnesia:transaction(fun()->mnesia:write(Item) end),
+    {ok, Id}.
 
 get(Id) ->
     Tab = sms_records,
