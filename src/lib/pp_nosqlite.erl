@@ -35,11 +35,13 @@ init(Tab, CopyType) ->
   mnesia:create_table(Tab,
     [{CopyType, [node()]}, {attributes, [key, map]}]).
 
-
+%% construct a tuple module
 table(Tab) -> {?MODULE, Tab}.
 
+%% create an item with map()
 create(Data, {?MODULE, Tab}) -> create(pp:uuid(), Data, {?MODULE, Tab}).
 
+%% create an item with key() and map()
 create(Key, Data, {?MODULE, Tab}) ->
   Item = {Tab, Key, Data#{
     created_at => pp:now_to_human(),
@@ -47,16 +49,20 @@ create(Key, Data, {?MODULE, Tab}) ->
   }},
   {atomic, ok} = mnesia:transaction(fun() -> mnesia:write(Item) end), ok.
 
+%% delete an item with key()
 delete(Key, {?MODULE, Tab}) ->
   Item = {Tab, Key},
   {atomic, ok} = mnesia:transaction(fun()-> mnesia:delete(Item) end), ok.
 
+%% update an old item() with key() and new property map()
 update(Key, Map, {?MODULE, Tab}) ->
   Item = {Tab, Key, Map#{
     lastmodified_at => pp:now_to_human()
   }},
   {atomic, ok} = mnesia:transaction(fun()->mnesia:write(Item) end), ok.
 
+%% got an item with key()
+%% not allowd duplicate key()
 get(Key, {?MODULE, Tab}) ->
     Cond = qlc:q([
         X || {_, K0, _} = X <- mnesia:table(Tab),
@@ -70,24 +76,28 @@ get(Key, {?MODULE, Tab}) ->
       _ -> error
     end.
 
-find_all(K, V, {?MODULE, Tab}) ->
+%% find all items with property
+find_all(PropK, PropV, {?MODULE, Tab}) ->
   Cond = qlc:q([
     [Key, Map] || {_, Key, Map} <- mnesia:table(Tab),
-    maps:get(K, Map, undefined) =:= V]),
+    maps:get(PropK, Map, undefined) =:= PropV]),
   {atomic, R} = mnesia:transaction(fun() -> qlc:e(Cond) end), R.
 
-find(K, V, {?MODULE, Tab}) ->
-  case find_all(K, V, {?MODULE, Tab}) of
+%% find only one item with [key(), map()]
+find(PropK, PropV, {?MODULE, Tab}) ->
+  case find_all(PropK, PropV, {?MODULE, Tab}) of
     [] -> not_found;
     [R|_] -> R
   end.
 
-find_key(K, V, {?MODULE, Tab}) ->
-  case find(K, V, {?MODULE, Tab}) of
+%% return only one key uuid()
+find_key(PropK, PropV, {?MODULE, Tab}) ->
+  case find(PropK, PropV, {?MODULE, Tab}) of
     not_found -> not_found;
     [Key, _] -> Key
   end.
 
+%% return all items with [[key(), map()]]
 all({?MODULE, Tab}) ->
     Cond = qlc:q([[K, M] || {_, K, M} <- mnesia:table(Tab)]),
     {atomic, R} = mnesia:transaction(fun()->qlc:e(Cond) end),
