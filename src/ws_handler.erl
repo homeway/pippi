@@ -111,8 +111,8 @@ update_sms_status(Pid, Key) ->
   spawn(fun() ->
     [{_, _, Item0}|_] = res_sms_records:get(Key),
     {Code, Status} = case maps:get(<<"code">>, Item0, undefined) of
-      <<"200">> ->
-        %% if code is 200, then respond is batchId
+      ok ->
+        %% if code is ok, then respond is batchId
         case sms:status(maps:get(<<"respond">>, Item0)) of
           {ok, _} -> {ok, sent};
           _ -> {error, not_send}

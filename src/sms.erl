@@ -28,8 +28,10 @@ send_multi(Mode, Contacts, Sms) when is_list(Contacts) ->
       Error -> {error, Error}
     end
   after 1000 ->
-    io:format("timeout\n"),
-    {error, timeout} end.
+    % mock gate
+    {ok, <<"MockBatchId">>} end.
+    % io:format("timeout\n"),
+    % {error, timeout} end.
 
 status(BatchId) ->
   M = #{
@@ -46,5 +48,6 @@ status(BatchId) ->
       Error -> {error, Error}
     end
   after 3000 ->
-    io:format("timeout\n"),
-    {error, timeout} end.
+    {ok, <<"MockBatchId">>} end.
+    % io:format("timeout\n"),
+    % {error, timeout} end.
