@@ -23,6 +23,7 @@ websocket_handle({text, Msg}, Req, State) ->
       <<"login">> -> login(Cmd);
       <<"logout">> -> logout(Cmd);
       <<"check_token">> -> check_token(Cmd);
+      <<"update_password">> -> force_login(Cmd, Pid, fun update_password/2);
       <<"send_sms">> -> force_login(Cmd, Pid, fun send_sms/2);
       <<"sms_records">> -> force_login(Cmd, Pid, fun sms_records/2);
       <<"send_multi_sms">> -> force_login(Cmd, Pid, fun send_multi_sms/2);
@@ -58,10 +59,15 @@ login(#{<<"account">> := Account, <<"password">> := Pass}) ->
       [error, invalid_account_or_password]
   end.
 
-update_password(#{<<"token">> := Token, <<"password">> := Pass}) ->
+update_password(_, #{<<"token">> := Token, <<"new_pass">> := NewPass, <<"old_pass">> := OldPass}) ->
   {ok, AccountName} = res_account:token_info(Token),
-  {atomic, ok} = res_account:update_pass(AccountName, Pass),
-  [ok].
+  case res_account:check_pass(AccountName, OldPass) of
+    true ->
+      {atomic, ok} = res_account:update_pass(AccountName, NewPass),
+      [ok];
+    false ->
+      [error, invalid_old_password]
+  end.
 
 logout(#{<<"token">> := Token}) ->
   res_account:delete_token(Token),
