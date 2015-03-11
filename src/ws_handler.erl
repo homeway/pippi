@@ -58,6 +58,11 @@ login(#{<<"account">> := Account, <<"password">> := Pass}) ->
       [error, invalid_account_or_password]
   end.
 
+update_password(#{<<"token">> := Token, <<"password">> := Pass}) ->
+  {ok, AccountName} = res_account:token_info(Token),
+  {atomic, ok} = res_account:update_pass(AccountName, Pass),
+  [ok].
+
 logout(#{<<"token">> := Token}) ->
   res_account:delete_token(Token),
   [ok].

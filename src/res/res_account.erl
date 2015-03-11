@@ -1,7 +1,7 @@
 %% -*- mode: nitrogen -*-
 -module(res_account).
--export([init_tables/0, insert/1, all/0, get/1, delete/1, update/2, check_pass/2]).
--export([generate_token/1, token_info/1, delete_token/1]).
+-export([init_tables/0, insert/1, all/0, get/1, delete/1, update/2, find_id/2, find_ids/2]).
+-export([update_pass/2, check_pass/2, generate_token/1, token_info/1, delete_token/1]).
 -include_lib("stdlib/include/qlc.hrl").
 
 %% There is no record here, use map() to store data in mnesia
@@ -55,12 +55,30 @@ all() ->
     R.
 
 check_pass(Name0, Pass0) ->
+    Tab = account,
     Cond = qlc:q([
-        Name1 || {_, _, #{name:=Name1, pass:=Pass1}} <- mnesia:table(account),
+        Name1 || {_, _, #{name:=Name1, pass:=Pass1}} <- mnesia:table(Tab),
         ss_convert:to_binary(Name0)=:=ss_convert:to_binary(Name1),
         ss_convert:to_binary(Pass0)=:=ss_convert:to_binary(Pass1)]),
     {atomic, R} = mnesia:transaction(fun() -> qlc:e(Cond) end),
     length(R) > 0.
+
+find_ids(K, V) ->
+    Tab = account,
+    Cond = qlc:q([
+        Id || {_, Id, Map} <- mnesia:table(Tab),
+        ss:to_binary(maps:get(K, Map, undefined)) =:= ss:to_binary(V)]),
+    {atomic, R} = mnesia:transaction(fun() -> qlc:e(Cond) end), R.
+
+find_id(K, V) ->
+    case find_ids(K, V) of
+        [Key|_] -> Key;
+        _ -> not_found
+    end.
+
+update_pass(Name, Pass) ->
+    Key = find_id(name, Name),
+    update(Key, #{pass=>Pass}).
 
 generate_token(AccountName) ->
     Token = ss_utils:uuid(),
