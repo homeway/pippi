@@ -9,16 +9,14 @@
 
 %%% we use mnesia to store nosqlite
 %%% 
+%%% data schema:
+%%%
 %%% {table(), key(), map()}
-%%%
-%%% table() - table name
-%%% key()   - item key in table
-%%% map()   - data store in table with map()
-%%%           data map include some property auto generated:
-%%%           created_at, lastmodified_at, update_logs
-%%%
-%%%
-%%% above is the data schema of all data schema
+%%%   - table(), table name
+%%%   - key(), item key in table
+%%%   - map(), data store in table with map()
+%%%       data map include some property auto generated:
+%%%       created_at, lastmodified_at, update_logs
 %%%
 %%% you can use tuple module style
 %%% T = pp_nosqlite:table(account),
@@ -27,6 +25,13 @@
 %%% we use a json-firendly style to return data
 %%% [key(), map()]
 %%% [[key(), map()]]
+%%%
+%%% todo: page/1, all/1 with pagination)
+%%% todo: search/2, condition search with pagination
+%%% todo: drop_table/1
+%%% todo: copy_table/2, create a table from an existing
+%%% todo: table_to_json/2, export table data to json file
+%%% todo: table_from_json/2, import data in json file to an empty table
 
 
 %% init database schema
