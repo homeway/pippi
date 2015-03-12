@@ -30,19 +30,20 @@ send_multi(Mode, Contacts, Sms) when is_list(Contacts) ->
       #{<<"code">> := <<"200">>} -> {ok, BatchId};
       Error -> {error, Error}
     end
-  after 1000 ->
+  after 30000 ->
     % mock gate
     % {ok, <<"MockBatchId">>} end.
     io:format("timeout\n"),
     {error, timeout} end.
 
 status(BatchId) ->
-  status(BatchId, 5).
+  status(BatchId, 10).
 status(BatchId, Times) ->
   receive undefined -> ok after 3000 -> ok end,
+  erlang:display({find_sms_gate_status, Times, times_left}),
   M = #{
-    busi => findReports,
-    % busi => findResps,
+    % busi => findReports,
+    busi => findResps,
     data => #{
       batch => BatchId
     }
