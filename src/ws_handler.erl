@@ -108,8 +108,11 @@ sms_records(_, #{<<"token">> := _Token}) ->
   [ok, Res].
 
 send_multi(Item) ->
+  % pp:display("send multi ......"),
+  % erlang:display(Item),
   #{<<"token">> := Token, <<"contacts">> := Contacts, <<"content">> := Content} = Item,
-  To = [Tel || #{tel := Tel} <- Contacts],
+  % io:format("~ts", [(jiffy:encode(Contacts))]),
+  To = [Tel || #{<<"tel">> := Tel} <- Contacts],
   [Code, Respond] = case sms:send_multi(To, Content) of
     {ok, BatchId} -> [ok, BatchId];
     {error, timeout} -> [error, <<"短信网关访问超时"/utf8>>];
@@ -121,17 +124,17 @@ send_multi(Item) ->
 update_sms_status(Pid, Key) ->
   spawn(fun() ->
     [{_, _, Item0}|_] = res_sms_records:get(Key),
-    {Code, Status} = case maps:get(<<"code">>, Item0, undefined) of
+    {Code, S, R} = case maps:get(<<"code">>, Item0, undefined) of
       ok ->
         %% if code is ok, then respond is batchId
         case sms:status(maps:get(<<"respond">>, Item0)) of
-          {ok, _} -> {ok, sent};
-          _ -> {error, not_send}
+          {ok, Result} -> pp:display(Result), {ok, sent, Result};
+          _ -> {error, not_send, undefined}
         end;
-      _ -> {error, not_submit}
+      Error -> pp:display(Error), {error, not_submit, undefined}
     end,
-    Item1 = Item0#{status => Status},
+    Item1 = Item0#{status => S, result => R},
     res_sms_records:update(Key, Item1),
-    Pid ! {client, jiffy:encode([sms_gate_state_update, Code, Status])}
+    Pid ! {client, jiffy:encode([sms_gate_state_update, Code, S, R])}
   end).
 
