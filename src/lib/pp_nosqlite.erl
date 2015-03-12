@@ -26,13 +26,14 @@
 %%% [key(), map()]
 %%% [[key(), map()]]
 %%%
+%%% change log: change table schema with [key(), data(), meta()]
+%%%
 %%% todo: page/1, all/1 with pagination)
 %%% todo: search/2, condition search with pagination
 %%% todo: drop_table/1
 %%% todo: copy_table/2, create a table from an existing
 %%% todo: table_to_json/2, export table data to json file
 %%% todo: table_from_json/2, import data in json file to an empty table
-
 
 %% init database schema
 create_schema(Tables) ->
@@ -46,7 +47,7 @@ create_table(Tab, disc_only) -> create_table(Tab, disc_only_copies);
 create_table(Tab, ram) -> create_table(Tab, ram_copies);
 create_table(Tab, CopyType) ->
   mnesia:create_table(Tab,
-    [{CopyType, [node()]}, {attributes, [key, map]}]).
+    [{CopyType, [node()]}, {attributes, [key, map, meta]}]).
 
 %% construct a tuple module
 table(Tab) -> {?MODULE, Tab}.
@@ -56,7 +57,7 @@ create(Data, {?MODULE, Tab}) -> create(pp:uuid(), Data, {?MODULE, Tab}).
 
 %% create an item with key() and map()
 create(Key, Data, {?MODULE, Tab}) ->
-  Item = {Tab, Key, Data#{
+  Item = {Tab, Key, Data, #{
     created_at => pp:now_to_human(),
     lastmodified_at => pp:now_to_human()
   }},
@@ -73,21 +74,23 @@ update(Key, NewProp, {?MODULE, Tab}) ->
     not_found -> not_found;
     error -> error;
     multi_records -> multi_records;
-    [_Key, Data] ->
-      NewItem = {Tab, Key, data_to_update(Data, NewProp)},
+    [_Key, Data, Meta] ->
+      {D, M} = data_to_update(Data, Meta, NewProp),
+      NewItem = {Tab, Key, D, M},
       {atomic, ok} = mnesia:transaction(fun()->mnesia:write(NewItem) end),
       ok
   end.
 
 %% private method for update
-data_to_update(Data, NewProp) ->
+data_to_update(Data, Meta, NewProp) ->
   OldProp = prop_to_update(Data, NewProp),
-  OldLog = maps:get(update_logs, Data, []),
+  OldLog = maps:get(update_logs, Meta, []),
   UpdateTime = pp:now_to_human(),
-  NewLog = [[UpdateTime, OldProp, NewProp]|OldLog],
-  maps:merge(Data, NewProp#{
-    update_logs => NewLog,
-    lastmodified_at => UpdateTime}).
+  D = maps:merge(Data, NewProp),
+  M = #{
+    update_logs => [[UpdateTime, OldProp, NewProp]|OldLog],
+    lastmodified_at => UpdateTime},
+  {D, M}.
 prop_to_update(Data, NewProp) ->
   L = maps:to_list(NewProp),
   R = [{PropK, maps:get(PropK, Data, undefined)} || {PropK, _} <- L],
@@ -98,12 +101,12 @@ prop_to_update(Data, NewProp) ->
 %% not allowd duplicate key()
 get(Key, {?MODULE, Tab}) ->
     Cond = qlc:q([
-        X || {_, K0, _} = X <- mnesia:table(Tab),
+        X || {_, K0, _, _} = X <- mnesia:table(Tab),
         Key =:= K0
     ]),
     {atomic, R} = mnesia:transaction(fun()->qlc:e(Cond) end),
     case R of
-      [{_, K, M}] -> [K, M];
+      [{_, K, D, M}] -> [K, D, M];
       [] -> not_found;
       [_H1|[_H2|_]] -> multi_records;
       _ -> error
@@ -111,9 +114,16 @@ get(Key, {?MODULE, Tab}) ->
 
 %% find all items with property
 find_all(PropK, PropV, {?MODULE, Tab}) ->
-  Cond = qlc:q([
-    [Key, Map] || {_, Key, Map} <- mnesia:table(Tab),
-    maps:get(PropK, Map, undefined) =:= PropV]),
+  Cond = case lists:member(PropK, [created_at, lastmodified_at, update_logs]) of
+    true ->
+      qlc:q([
+        [Key, Data, Map] || {_, Key, Data, Map} <- mnesia:table(Tab),
+        maps:get(PropK, Map, undefined) =:= PropV]);
+    false ->
+      qlc:q([
+        [Key, Data, Map] || {_, Key, Data, Map} <- mnesia:table(Tab),
+        maps:get(PropK, Data, undefined) =:= PropV])
+  end,
   {atomic, R} = mnesia:transaction(fun() -> qlc:e(Cond) end), R.
 
 %% find only one item with [key(), map()]
@@ -127,15 +137,15 @@ find(PropK, PropV, {?MODULE, Tab}) ->
 find_key(PropK, PropV, {?MODULE, Tab}) ->
   case find(PropK, PropV, {?MODULE, Tab}) of
     not_found -> not_found;
-    [Key, _] -> Key
+    [Key, _, _] -> Key
   end.
 
 %% return all items with [[key(), map()]]
 all({?MODULE, Tab}) ->
-    Cond = qlc:q([[K, M] || {_, K, M} <- mnesia:table(Tab)]),
+    Cond = qlc:q([[K, D, M] || {_, K, D, M} <- mnesia:table(Tab)]),
     {atomic, R} = mnesia:transaction(fun()->qlc:e(Cond) end),
     try
-      lists:sort(fun({_, #{created_at:=C1}}, {_, #{created_at:=C2}}) ->
+      lists:sort(fun({_, _, #{created_at:=C1}}, {_, _, #{created_at:=C2}}) ->
           C1 > C2
       end, R)
     catch
