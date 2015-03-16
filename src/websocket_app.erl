@@ -11,12 +11,13 @@
 %% API.
 start() -> start(none, none).
 start(_Type, _Args) ->
-	Mime = [{mimetypes,cow_mimetypes,all}],
+	% Mime = [{mimetypes,cow_mimetypes,all}],
 	Dispatch = cowboy_router:compile([
 		{'_', [
 			{"/", cowboy_static, {file, "priv/index.html"}},
 			{"/websocket", ws_handler, []},
-			{"/static/[...]", cowboy_static, {dir, "priv/static"}}
+			{"/ws", pp_ws_handler, []},
+			{"/[...]", cowboy_static, {dir, "priv"}}
 		]}
 	]),
 	{ok, _} = cowboy:start_http(http, 100, [{port, 8080}],
