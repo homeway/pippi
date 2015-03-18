@@ -10,7 +10,7 @@
 init({tcp, http}, _Req, _Opts) ->
   {upgrade, protocol, cowboy_websocket}.
 
-%% 连接时
+%% 初始化时连接到account进程
 websocket_init(_TransportName, Req, _Opts) ->
   {ok, Req, undefined_state}.
 

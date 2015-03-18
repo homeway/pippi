@@ -1,5 +1,5 @@
 %% -*- mode: nitrogen -*-
--module(account).
+-module(pp_account).
 -behaviour(gen_fsm).
 -export([start/0]).
 
@@ -17,10 +17,10 @@ init([]) ->
     erlang:display({init, now(), ok}),
     {ok, offline, #{slots=>[]}, ?OFFLINE_TIMEOUT}.
 
-offline({login, From, #{<<"user">> := <<"adi">>, <<"pass">> := <<"123">>}}, #{slots:=SlotsOld}=State) ->
-    SlotsNew => [From|SlotsOld],
+offline({login, FromPid, #{<<"user">> := <<"adi">>, <<"pass">> := <<"123">>}}, #{slots:=SlotsOld}=State) ->
+    SlotsNew = [FromPid|SlotsOld],
     %% return the result for caller
-    From ! {login, ok},
+    FromPid ! {online, ok},
     erlang:display({login, now(), ok}),
 
     {next_state, online, State#{user=> <<"adi">>, slots=> SlotsNew}, ?ONLINE_TIMEOUT};
