@@ -4,3 +4,4 @@ Mnesia.*
 priv/js/angular/
 priv/js/ui-router/
 *.beam
+*.dump
