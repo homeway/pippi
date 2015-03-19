@@ -41,6 +41,7 @@ offline({login, From, Ref, #{user := <<"adi">>, pass := <<"123">>}}, #{slots:=Sl
     % confirm
     From ! {login, Ref, ok},
     % broad cast
+    [Pid ! {online, Ref, <<"adi">>} || Pid <- SlotsNew],
     {next_state, online, State#{user=> <<"adi">>, slots=> SlotsNew}, maps:get(online_timeout, State)};
 
 offline({login, From, Ref, Auth}, State) ->
