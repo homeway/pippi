@@ -12,12 +12,30 @@ got_msg() ->
     end.
 
 main_test() ->
+    %% start
     A1 = pp_account:start(1000, 1000),
+
+    %% 发送离线通知
     clear_msg(),
+    A1:notify("hello"),
+    ?assertMatch({notify, _Ref, {ok, offline}}, got_msg()),
 
     %% 错误信息的登录
+    clear_msg(),
     A1:login("user", "123"),
     ?assertMatch({login, _Ref, {error, _Msg}}, got_msg()),
+
+    %% 正确信息的登录
+    clear_msg(),
+    A1:login("adi", "123"),
+    ?assertMatch({login, _Ref, ok}, got_msg()),
+
+    %% 发送在线通知
+    clear_msg(),
+    A1:notify("hello"),
+    ?assertMatch({notify, _Ref, {ok, online}}, got_msg()),
+
+    %% exit
     A1:stop().
 
 

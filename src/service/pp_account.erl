@@ -54,7 +54,7 @@ offline(timeout, State) ->
 %% send a notify to offline
 offline({notify, From, Ref, _OfflineMsg}, State) ->
     % confirm
-    From ! {notify, Ref, ok},
+    From ! {notify, Ref, {ok, offline}},
     {next_state, offline, State};
 
 offline(_Event, State) ->
@@ -63,7 +63,7 @@ offline(_Event, State) ->
 %% send a notify to online
 online({notify, From, Ref, Msg}, #{slots:=Slots}=State) ->
     % confirm
-    From ! {notify, Ref, ok},
+    From ! {notify, Ref, {ok, online}},
     % broad cast
     [Pid ! {notify, Ref, Msg} || Pid <- Slots],
     {next_state, online, State, maps:get(online_timeout, State)};
