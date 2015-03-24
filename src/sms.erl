@@ -10,13 +10,13 @@ send_multi(Contacts, Sms) ->
   send_multi(sendMulti, Contacts, Sms).
 
 send_multi(Mode, Contacts, Sms) when is_list(Contacts) ->
-  BatchId = ss_utils:uuid(),
+  BatchId = pp:uuid(),
   M = #{
     busi => Mode,
     data => #{
       list => [#{
-        tel => ss_convert:to_binary(To),
-        msg => ss_convert:to_binary(Sms)} || To <- Contacts
+        tel => pp:to_binary(To),
+        msg => pp:to_binary(Sms)} || To <- Contacts
       ],
       batch => BatchId
     }

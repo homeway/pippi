@@ -1,4 +1,4 @@
--module(pp_nosqlite).
+-module(nosqlite).
 -export([
   create_schema/1, create_table/2, table/1,
   create/2, create/3, delete/2, update/3, get/2,
@@ -19,7 +19,7 @@
 %%%       created_at, lastmodified_at, update_logs
 %%%
 %%% you can use tuple module style
-%%% T = pp_nosqlite:table(account),
+%%% T = nosqlite:table(account),
 %%% T:all().
 %%%
 %%% we use a json-firendly style to return data

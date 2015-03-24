@@ -1,5 +1,5 @@
 %% -*- mode: nitrogen -*-
--module(ss_time).
+-module(pp_time).
 -export([iso_to_human/1, iso_to_human/2, human_to_iso/1]).
 -export([now_to_iso/0, now_to_human/0, now_to_human/1]).
 
@@ -34,22 +34,22 @@ l2u_list(LocalTuple) ->
 iso_to_human(Datetime) ->
     iso_to_human(datetime, Datetime).
 iso_to_human(datetime, Datetime) ->
-    ss:to_binary(io_lib:format("~4..0B-~2..0B-~2..0B ~2..0B:~2..0B:~2..0B", u2l_list(iso_to_dt(Datetime))));
+    pp:to_binary(io_lib:format("~4..0B-~2..0B-~2..0B ~2..0B:~2..0B:~2..0B", u2l_list(iso_to_dt(Datetime))));
 iso_to_human(date, Datetime) ->
     [Y, M, D|_] = u2l_list(iso_to_dt(Datetime)),
-    ss:to_binary(io_lib:format("~4..0B-~2..0B-~2..0B", [Y, M, D])).
+    pp:to_binary(io_lib:format("~4..0B-~2..0B-~2..0B", [Y, M, D])).
 
 %% 从可读格式转存为Iso格式
 human_to_iso(Datetime1) ->
-    Datetime = human_to_dt(ss:to_binary(Datetime1)),
-    ss:to_binary(io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B:~2..0B:~2..0BZ", l2u_list(Datetime))).
+    Datetime = human_to_dt(pp:to_binary(Datetime1)),
+    pp:to_binary(io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B:~2..0B:~2..0BZ", l2u_list(Datetime))).
 
 %% 当前iso时间串
 now_to_iso() ->
     {{Y, M, D}, {H, Mi, S}} = calendar:now_to_universal_time(erlang:now()),
-    ss:to_binary(io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B:~2..0B:~2..0BZ", [Y, M, D, H, Mi, S])).
+    pp:to_binary(io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B:~2..0B:~2..0BZ", [Y, M, D, H, Mi, S])).
 %% 当前local时间串
 now_to_human() -> now_to_human(erlang:now()).
 now_to_human(Time) ->
     {{Y, M, D}, {H, Mi, S}} = calendar:now_to_local_time(Time),
-    ss:to_binary(io_lib:format("~4..0B-~2..0B-~2..0B ~2..0B:~2..0B:~2..0B", [Y, M, D, H, Mi, S])).
+    pp:to_binary(io_lib:format("~4..0B-~2..0B-~2..0B ~2..0B:~2..0B:~2..0B", [Y, M, D, H, Mi, S])).

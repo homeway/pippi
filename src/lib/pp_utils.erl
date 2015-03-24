@@ -1,4 +1,4 @@
--module(ss_utils).
+-module(pp_utils).
 -export([uuid/0]).
 -export([to_string/1]).
 

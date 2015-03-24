@@ -1,5 +1,5 @@
 %% -*- mode: nitrogen -*-
--module(ss_convert).
+-module(pp_convert).
 
 %% API
 -export([to_binary/1, to_list/1, to_integer/1, to_atom/1, encode_atom/1]).
