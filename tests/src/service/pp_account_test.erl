@@ -16,16 +16,27 @@ login_test() ->
     %% start
     A1 = pp_account:start(1000, 1000),
 
+    %% 未登录时的错误操作
+    ?assertMatch({error, offline, no_this_action}, A1:logout()),
+
+    %% 获取授权更新
+    Methods = [<<"users.list">>, <<"users.get">>],
+    ?assertMatch(Methods, A1:methods()),
+
     %% 错误的登录
     ?assertMatch({error, _Msg}, A1:login("user", "123")),
-
     ?assertMatch({offline, _Status}, A1:status()),
 
     %% 正确的登录
     ?assertMatch(ok, A1:login("adi", "123")),
-
-    A1:status(),
     ?assertMatch({online, #{user := <<"adi">>}}, A1:status()),
+
+    %% 已登录时的错误操作
+    ?assertMatch({error, online, no_this_action}, A1:login("adi", "123")),
+
+    %% 注销
+    ?assertMatch(ok, A1:logout()),
+    ?assertMatch({offline, _Status}, A1:status()),
 
     %% exit
     A1:stop().

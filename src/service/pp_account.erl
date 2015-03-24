@@ -1,8 +1,8 @@
 %% -*- mode: nitrogen -*-
 -module(pp_account).
 -behaviour(gen_fsm).
--export([start/0, start/2, stop/1]).
--export([account_tuple/1, login/3, status/1]).
+-export([start/0, start/2, stop/1, start_link/0, start_link/2]).
+-export([account_tuple/1, login/3, logout/1, status/1, methods/1]).
 
 %% gen_fsm callbacks
 -export([init/1, offline/2, offline/3, online/2, online/3]).
@@ -12,11 +12,16 @@
 
 %% api
 start() -> start(3000, 3000).
-start(OnlineTimeout, OfflineTimeout) ->
-    {ok, Pid} = gen_fsm:start(?MODULE, [#{
-        online_timeout => OnlineTimeout,
-        offline_timeout => OfflineTimeout,
-        subscribes => #{}
+start(OnTimeout, OffTimeout) ->
+    {?MODULE, Pid} = start_link(OnTimeout, OffTimeout),
+    unlink(Pid),
+    {?MODULE, Pid}.
+
+start_link() -> start_link(3000, 3000).
+start_link(OnTimeout, OffTimeout) ->
+    {ok, Pid} = gen_fsm:start_link(?MODULE, [#{
+        online_timeout => OnTimeout,
+        offline_timeout => OffTimeout
     }], []),
     {?MODULE, Pid}.
 
@@ -26,15 +31,21 @@ stop({?MODULE, Pid}) ->
 account_tuple(Pid) ->
     {?MODULE, Pid}.
 
-login(User, Pass, {?MODULE, AccountPid}) ->
+login(User, Pass, {?MODULE, Pid}) ->
     Auth = #{
         user => pp:to_binary(User),
         pass => pp:to_binary(Pass)
     },
-    gen_fsm:sync_send_event(AccountPid, {login, Auth}, ?TIMEOUT).
+    gen_fsm:sync_send_event(Pid, {login, Auth}, ?TIMEOUT).
+
+logout({?MODULE, Pid}) ->
+    gen_fsm:sync_send_event(Pid, logout, ?TIMEOUT).
 
 status({?MODULE, Pid}) ->
     gen_fsm:sync_send_all_state_event(Pid, status, ?TIMEOUT).
+
+methods({?MODULE, Pid}) ->
+    gen_fsm:sync_send_event(Pid, methods, ?TIMEOUT).
 
 %% gen_fsm callbacks
 init([#{offline_timeout:=OfflineTimeout}=Conf]) ->
@@ -46,7 +57,17 @@ offline({login, #{user := <<"adi">>, pass := <<"123">>}}, _From, State) ->
 
 %% login when offline
 offline({login, _Auth}, _From, State) ->
-    {reply, {error, bad_user_or_password}, offline, State, maps:get(offline_timeout, State)}.
+    {reply, {error, bad_user_or_password}, offline, State, maps:get(offline_timeout, State)};
+
+%% return methods not yet login
+offline(methods, _From, State) ->
+    Methods = [<<"users.list">>, <<"users.get">>],
+    {reply, Methods, offline, State, maps:get(offline_timeout, State)};
+
+%% no action
+offline(_, _, State) ->
+    {reply, {error, offline, no_this_action}, offline, State, maps:get(offline_timeout, State)}.
+
 
 %% offline session to exit
 offline(timeout, State) ->
@@ -57,7 +78,16 @@ offline(_Event, State) ->
 
 %% to logout
 online(logout, _From, State) ->
-    {reply, ok, offline, State}.
+    {reply, ok, offline, State, maps:get(offline_timeout, State)};
+
+%% return methods after login
+online(methods, _From, State) ->
+    Methods = [<<"users.*">>],
+    {reply, Methods, online, State, maps:get(offline_timeout, State)};
+
+%% no action
+online(_, _, State) ->
+    {reply, {error, online, no_this_action}, online, State, maps:get(online_timeout, State)}.
 
 %% online session timeout
 online(timeout, State) ->
