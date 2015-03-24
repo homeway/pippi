@@ -1,7 +1,7 @@
 %% Feel free to use, reuse and abuse the code in this file.
 
 %% @private
--module(websocket_app).
+-module(pippi_app).
 -behaviour(application).
 
 %% API.
@@ -16,13 +16,13 @@ start(_Type, _Args) ->
 		{'_', [
 			{"/", cowboy_static, {file, "priv/index.html"}},
 			{"/websocket", ws_handler, []},
-			{"/ws", pp_ws_handler, []},
+			{"/ws", pippi_websocket, []},
 			{"/[...]", cowboy_static, {dir, "priv"}}
 		]}
 	]),
 	{ok, _} = cowboy:start_http(http, 100, [{port, 8080}],
 		[{env, [{dispatch, Dispatch}]}]),
-	websocket_sup:start_link().
+	pippi_sup:start_link().
 
 stop(_State) ->
 	ok.

@@ -1,15 +1,15 @@
 %% Feel free to use, reuse and abuse the code in this file.
 
-{application, websocket, [
-	{description, "Cowboy websocket example."},
+{application, pippi, [
+	{description, "pippi web framework."},
 	{vsn, "1"},
 	{modules, []},
-	{registered, [websocket_sup]},
+	{registered, [pippi_sup]},
 	{applications, [
 		kernel,
 		stdlib,
 		cowboy
 	]},
-	{mod, {websocket_app, []}},
+	{mod, {pippi_app, []}},
 	{env, []}
 ]}.
