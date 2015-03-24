@@ -11,23 +11,46 @@
 init({tcp, http}, _Req, _Opts) ->
     {upgrade, protocol, cowboy_websocket}.
 
-%% 初始化时连接到account进程
+%% connect to pp_account
 websocket_init(_TransportName, Req, _Opts) ->
     A = pp_account:start_link(),
     Methods = A:methods(),
     {ok, Req, #{account=>A, methods=>Methods}}.
 
-websocket_handle({text, Msg}, Req, State) ->
+%% text command
+%%
+%% {text, json(login, A)}
+%% {text, json(logout)}
+%% {text, json(raw, M, F, A)}
+%% {text, json(amqp, M, F, A)}
+websocket_handle({text, Msg}, Req, #{account:=A}=State) ->
     Cmds = jiffy:decode(Msg, [return_maps]),
-    pp:display(Msg),
+    R = case Cmds of
+        [<<"login">>, [User, Pass]] ->
+            case A:login(User, Pass) of
+                ok -> self() ! update_methods, ok;
+                Error -> Error
+            end;
+        [<<"logout">>] ->
+            R1 = A:logout(),
+            self() ! update_methods, R1;
+        [<<"status">>] ->
+            A:status();
+        [<<"methods">>] ->
+            maps:get(methods, State, []);
+        [<<"raw_sync">>, M, F, A] ->
+            apply(pp:to_atom(M), pp:to_atom(F), pp:to_atom(A));
+        _ -> [error, unknown_action, Cmds]
+    end,
     erlang:display({"client text req: ", [Cmds]}),
-    {reply, {text, jiffy:encode([processing])}, Req, State};
+    {reply, {text, jiffy:encode(pp:to_list(R))}, Req, State};
 
 websocket_handle(_Data, Req, State) ->
     {ok, Req, State}.
 
 websocket_info({client, Msg}, Req, State) ->
     {reply, {text, Msg}, Req, State};
+
 websocket_info(_Info, Req, State) ->
     {ok, Req, State}.
 
