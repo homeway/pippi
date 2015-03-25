@@ -1,6 +1,6 @@
 -module(pp_utils).
 -export([uuid/0]).
--export([to_string/1]).
+-export([to_string/1, apply/3, allow/2]).
 
 %% to replace erlang:display/1
 to_string(L) -> lists:flatten(to_string(L, "")).
@@ -41,3 +41,40 @@ uuid() ->
     Str = io_lib:format("~8.16.0b-~4.16.0b-4~3.16.0b-~4.16.0b-~12.16.0b", 
                         [A, B, C band 16#0fff, D band 16#3fff bor 16#8000, E]),
     list_to_binary(Str).
+
+%% support nosqlite methods apply
+apply([M1, M2], F, A) when is_atom(M1) and is_atom(M2) ->
+    code:ensure_loaded(M2),
+    case erlang:function_exported(M2, F, length(A)) of
+        true -> erlang:apply(M2, F, A);
+        _ -> erlang:apply({M1, M2}, F, A)
+    end;
+apply(M, F, A) when is_atom(M) -> erlang:apply(M, F, A).
+
+%% allow to use methods
+
+%% nosqlite
+allow([[nosqlite, M], F], Methods) -> allow([M, F], Methods);
+allow([[nosqlite, M], F, A], Methods) -> allow([M, F, A], Methods);
+
+%% no arguments
+allow([M, F], Methods) -> allow([M, F, []], Methods);
+
+%% tuple module
+allow([[M|A1], F, A0], Methods) -> allow([M, F, A0++A1], Methods);
+
+%% common mfa
+allow([M, F, A], Methods) ->
+    lists:any(fun(I) -> allow_item([M, F, A], I) end, Methods).
+
+allow_item([M, _F, _A], M) -> true;
+allow_item([M, F, _A], [M, F]) -> true;
+allow_item([M, F, A], [M, Funs]) when is_list(Funs) ->
+    lists:any(fun(Fun) ->
+        if
+            is_atom(Fun) -> F =:= Fun;
+            is_list(Fun) -> [F|A] =:= Fun;
+            true -> false
+        end
+    end, Funs);
+allow_item(_, _) -> false.
