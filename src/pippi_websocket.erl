@@ -23,7 +23,7 @@ websocket_init(_TransportName, Req, _Opts) ->
 %% {text, json(logout)}
 %% {text, json(raw, M, F, A)}
 %% {text, json(amqp, M, F, A)}
-websocket_handle({text, Msg}, Req, #{account:=A}=State) ->
+websocket_handle({text, Msg}, Req, #{account:=A, methods:=Methods}=State) ->
     Cmds = jiffy:decode(Msg, [return_maps]),
     R = case Cmds of
         [<<"login">>, [User, Pass]] ->
@@ -38,11 +38,19 @@ websocket_handle({text, Msg}, Req, #{account:=A}=State) ->
             A:status();
         [<<"methods">>] ->
             maps:get(methods, State, []);
-        [<<"raw_sync">>, M, F, A] ->
-            apply(pp:to_atom(M), pp:to_atom(F), pp:to_atom(A));
-        _ -> [error, unknown_action, Cmds]
+        [<<"call">>, [<<"nosqlite">>, M], F] ->
+            call([nosqlite, pp:to_atom(M)], pp:to_atom(F), [], Methods, Cmds);
+        [<<"call">>, M, F] ->
+            call(pp:to_atom(M), pp:to_atom(F), [], Methods, Cmds);
+        [<<"call">>, [<<"nosqlite">>, M], F, A] ->
+            call([nosqlite, pp:to_atom(M)], pp:to_atom(F), A, Methods, Cmds);
+        [<<"call">>, M, F, A] ->
+            call(pp:to_atom(M), pp:to_atom(F), A, Methods, Cmds);
+        _ ->
+            [error, no_this_action, Cmds]
     end,
-    erlang:display({"client text req: ", [Cmds]}),
+    pp:display({"req : ", Cmds}),
+    pp:display({"resp: ", R}),
     {reply, {text, jiffy:encode(pp:to_list(R))}, Req, State};
 
 websocket_handle(_Data, Req, State) ->
@@ -57,3 +65,13 @@ websocket_info(_Info, Req, State) ->
 websocket_terminate(_Reason, _Req, _State) ->
     ok.
 
+call([nosqlite, M], F, A, Methods, Cmds) ->
+    case pp:allow([[nosqlite, M], F, A], Methods) of
+        true -> pp:apply([nosqlite, M], F, A);
+        _ -> [error, deny, Cmds]
+    end;
+call(M, F, A, Methods, Cmds) ->
+    case pp:allow([M, F, A], Methods) of
+        true -> pp:apply(M, F, A);
+        _ -> [error, deny, Cmds]
+    end.
