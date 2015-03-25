@@ -20,8 +20,7 @@ login_test() ->
     ?assertMatch({error, offline, no_this_action}, A1:logout()),
 
     %% 获取授权更新
-    Methods = [<<"users.list">>, <<"users.get">>],
-    ?assertMatch(Methods, A1:methods()),
+    ?assertMatch([[users, [all, get]]], A1:methods()),
 
     %% 错误的登录
     ?assertMatch({error, _Msg}, A1:login("user", "123")),
@@ -30,6 +29,9 @@ login_test() ->
     %% 正确的登录
     ?assertMatch(ok, A1:login("adi", "123")),
     ?assertMatch({online, #{user := <<"adi">>}}, A1:status()),
+
+    %% 获取授权更新
+    ?assertMatch([users], A1:methods()),
 
     %% 已登录时的错误操作
     ?assertMatch({error, online, no_this_action}, A1:login("adi", "123")),

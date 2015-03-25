@@ -61,7 +61,7 @@ offline({login, _Auth}, _From, State) ->
 
 %% return methods not yet login
 offline(methods, _From, State) ->
-    Methods = [<<"users.list">>, <<"users.get">>],
+    Methods = [[users, [all, get]]],
     {reply, Methods, offline, State, maps:get(offline_timeout, State)};
 
 %% no action
@@ -82,7 +82,7 @@ online(logout, _From, State) ->
 
 %% return methods after login
 online(methods, _From, State) ->
-    Methods = [<<"users.*">>],
+    Methods = [users],
     {reply, Methods, online, State, maps:get(offline_timeout, State)};
 
 %% no action
