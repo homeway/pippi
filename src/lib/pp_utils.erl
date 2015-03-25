@@ -43,13 +43,14 @@ uuid() ->
     list_to_binary(Str).
 
 %% support nosqlite methods apply
-apply([M1, M2], F, A) when is_atom(M1) and is_atom(M2) ->
-    code:ensure_loaded(M2),
-    case erlang:function_exported(M2, F, length(A)) of
-        true -> erlang:apply(M2, F, A);
-        _ -> erlang:apply({M1, M2}, F, A)
+apply([nosqlite, M0], F0, A) ->
+    M = pp:to_atom(M0), F = pp:to_atom(F0),
+    code:ensure_loaded(M),
+    case erlang:function_exported(M, F, length(A)) of
+        true -> erlang:apply(M, F, A);
+        _ -> erlang:apply({nosqlite, M}, F, A)
     end;
-apply(M, F, A) when is_atom(M) -> erlang:apply(M, F, A).
+apply(M, F, A) -> erlang:apply(M, F, A).
 
 %% allow to use methods
 

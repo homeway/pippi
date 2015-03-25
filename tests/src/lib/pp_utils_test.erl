@@ -2,6 +2,9 @@
 -module(pp_utils_test).
 -include_lib("eunit/include/eunit.hrl").
 
+apply_test() ->
+    ?assertMatch([], pp:apply([nosqlite, users], all, [])).
+
 allow_test() ->
     Methods = [
         users1,
