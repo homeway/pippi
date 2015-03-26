@@ -1,3 +1,4 @@
+%% -*- mode: nitrogen -*-
 -module(pp_utils).
 -export([uuid/0]).
 -export([to_string/1, apply/3, allow/2]).
@@ -5,8 +6,12 @@
 %% to replace erlang:display/1
 to_string(L) -> lists:flatten(to_string(L, "")).
 
+to_string([], Acc0) ->
+    Acc0 ++ "[]";
 to_string(L, Acc0) when is_list(L) ->
-    IsString = lists:all(fun(I) -> is_integer(I) end, L),
+    IsString = lists:all(fun(I) ->
+        is_integer(I) and (I =< 126) and (I >= 32)
+    end, L),
     case IsString of
         true ->
             Acc0 ++ "\"" ++ L ++ "\"";
