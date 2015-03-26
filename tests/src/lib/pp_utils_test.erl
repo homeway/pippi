@@ -30,7 +30,15 @@ to_string_test() ->
 
 
 apply_test() ->
-    ?assertMatch([], pp:apply([nosqlite, users], all, [])).
+    ?assertMatch(0, pp:apply(users, total)),
+
+    ?assertMatch(0, pp:apply([nosqlite, users], total, [])),
+    ?assertMatch([], pp:apply([nosqlite, users], all)),
+    ?assertMatch([], pp:apply([nosqlite, users], all, [])),
+
+    ?assertMatch(none, pp:apply(users, get, [1])),
+    ?assertMatch(none, pp:apply([nosqlite, users], get, [1])).
+
 
 allow_test() ->
     Methods = [

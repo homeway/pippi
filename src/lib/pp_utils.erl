@@ -1,7 +1,7 @@
 %% -*- mode: nitrogen -*-
 -module(pp_utils).
 -export([uuid/0]).
--export([to_string/1, apply/3, allow/2]).
+-export([to_string/1, apply/2, apply/3, allow/2]).
 
 %% to replace erlang:display/1
 to_string(L) -> lists:flatten(to_string(L, "")).
@@ -43,11 +43,13 @@ to_string(Term, Acc0) ->
 
 uuid() ->
     <<A:32, B:16, C:16, D:16, E:48>> = crypto:rand_bytes(16),
-    Str = io_lib:format("~8.16.0b-~4.16.0b-4~3.16.0b-~4.16.0b-~12.16.0b", 
-                        [A, B, C band 16#0fff, D band 16#3fff bor 16#8000, E]),
+    Str = io_lib:format("~8.16.0b-~4.16.0b-4~3.16.0b-~4.16.0b-~12.16.0b", [A, B, C band 16#0fff, D band 16#3fff bor 16#8000, E]),
     list_to_binary(Str).
 
 %% support nosqlite methods apply
+apply(M, F) ->
+    ?MODULE:apply(M, F, []).
+
 apply([nosqlite, M0], F0, A) ->
     M = pp:to_atom(M0), F = pp:to_atom(F0),
     code:ensure_loaded(M),
