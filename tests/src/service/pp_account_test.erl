@@ -39,7 +39,7 @@ login_test() ->
     prepare(),
 
     %% start
-    A1 = pp_account:start(1000, 1000),
+    A1 = pp_account:start(1000, self()),
 
     %% 未登录时的错误操作
     ?assertMatch({error, offline, no_this_action}, A1:logout()),
