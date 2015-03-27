@@ -1,7 +1,7 @@
 %% -*- mode: nitrogen -*-
 -module(pp_utils).
 -export([uuid/0]).
--export([to_string/1, apply/2, apply/3, allow/2]).
+-export([to_string/1, allow/2, confirm_json/1]).
 
 %% to replace erlang:display/1
 to_string(L) -> lists:flatten(to_string(L, "")).
@@ -10,7 +10,8 @@ to_string([], Acc0) ->
     Acc0 ++ "[]";
 to_string(L, Acc0) when is_list(L) ->
     IsString = lists:all(fun(I) ->
-        is_integer(I) and (I =< 126) and (I >= 32)
+        %% [9] is \t, [10] is \n
+        is_integer(I) and ((I =< 126) and (I >= 9))
     end, L),
     case IsString of
         true ->
@@ -46,34 +47,29 @@ uuid() ->
     Str = io_lib:format("~8.16.0b-~4.16.0b-4~3.16.0b-~4.16.0b-~12.16.0b", [A, B, C band 16#0fff, D band 16#3fff bor 16#8000, E]),
     list_to_binary(Str).
 
-%% support nosqlite methods apply
-apply(M, F) ->
-    ?MODULE:apply(M, F, []).
-
-apply([nosqlite, M0], F0, A) ->
-    M = pp:to_atom(M0), F = pp:to_atom(F0),
-    code:ensure_loaded(M),
-    case erlang:function_exported(M, F, length(A)) of
-        true -> erlang:apply(M, F, A);
-        _ -> erlang:apply({nosqlite, M}, F, A)
-    end;
-apply(M, F, A) -> erlang:apply(M, F, A).
-
 %% allow to use methods
-
-%% nosqlite
-allow([[nosqlite, M], F], Methods) -> allow([M, F], Methods);
-allow([[nosqlite, M], F, A], Methods) -> allow([M, F, A], Methods);
-
+%%
 %% no arguments
 allow([M, F], Methods) -> allow([M, F, []], Methods);
 
-%% tuple module
-allow([[M|A1], F, A0], Methods) -> allow([M, F, A0++A1], Methods);
-
+%% nosqlite mfa
+allow([{nosqlite, M}, F, A], Methods) ->
+    code:ensure_loaded(nosqlite),
+    case erlang:function_exported(nosqlite, F, length(A) + 1) of
+        true ->
+            lists:any(fun(I) -> allow_item([M, F, A], I) end, Methods);
+        false -> false
+    end;
 %% common mfa
 allow([M, F, A], Methods) ->
-    lists:any(fun(I) -> allow_item([M, F, A], I) end, Methods).
+    code:ensure_loaded(M),
+    case erlang:function_exported(M, F, length(A)) of
+        true ->
+            lists:any(fun(I) ->
+                allow_item([M, F, A], I)
+            end, Methods);
+        false -> false
+    end.
 
 allow_item([M, _F, _A], M) -> true;
 allow_item([M, F, _A], [M, F]) -> true;
@@ -81,8 +77,16 @@ allow_item([M, F, A], [M, Funs]) when is_list(Funs) ->
     lists:any(fun(Fun) ->
         if
             is_atom(Fun) -> F =:= Fun;
+            is_binary(Fun) -> F =:= Fun;
             is_list(Fun) -> [F|A] =:= Fun;
             true -> false
         end
     end, Funs);
 allow_item(_, _) -> false.
+
+%% confirm data input compatible with json
+confirm_json(Tuple) when is_tuple(Tuple) ->
+    confirm_json(erlang:tuple_to_list(Tuple));
+confirm_json(Data) ->
+    D1 = jiffy:encode(Data),
+    jiffy:decode(D1, [return_maps]).
