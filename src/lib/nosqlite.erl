@@ -10,7 +10,7 @@
 
 -include_lib("stdlib/include/qlc.hrl").
 
--define(ver, [nosqlite, 0, 1]).
+-define(ver, [<<"nosqlite">>, 0, 1]).
 
 %%% we use mnesia to store nosqlite
 %%%
@@ -20,7 +20,7 @@
 %%% 3) embedded update logs into meta data
 %%% 4) json prepare:
 %%%      iolist, binary, atom -> string,
-%%%      int, list, map
+%%%      int, float, list, map
 %%% 5) easy crud
 %%% 6) mode: ram, disc, disc_only
 %%% 7) multi nodes
@@ -84,6 +84,12 @@ size({?MODULE, Tab}) ->
 %% construct a tuple module
 table(Tab) -> {?MODULE, Tab}.
 
+%% private for create and update
+%% confirm data input compatible with json
+confirm_json(Data) ->
+    D1 = jiffy:encode(Data),
+    jiffy:decode(D1, [return_maps]).
+
 %% create an item with map()
 create(Data, {?MODULE, Tab}) ->
     K = pp:uuid(),
@@ -94,26 +100,27 @@ create(Data, {?MODULE, Tab}) ->
 
 %% create an item with key() and map()
 create(Key, Data, {?MODULE, Tab}) ->
-    Item = {Tab, Key, Data, #{
-        ver => ?ver,
-        created_at => pp:now_to_human(),
-        lastmodified_at => pp:now_to_human()
+    Item = {Tab, confirm_json(Key), confirm_json(Data), #{
+        <<"ver">> => ?ver,
+        <<"created_at">> => pp:now_to_human(),
+        <<"lastmodified_at">> => pp:now_to_human()
     }},
     {atomic, ok} = mnesia:transaction(fun() -> mnesia:write(Item) end), ok.
 
 %% delete an item with key()
 delete(Key, {?MODULE, Tab}) ->
-    Item = {Tab, Key},
+    Item = {Tab, confirm_json(Key)},
     {atomic, ok} = mnesia:transaction(fun()-> mnesia:delete(Item) end), ok.
 
 %% update an old item() with key() and new property map()
-update(Key, NewProp, {?MODULE, Tab}) ->
+update(Key0, NewProp, {?MODULE, Tab}) ->
+    Key = confirm_json(Key0),
     case get(Key, {?MODULE, Tab}) of
         not_found -> not_found;
         error -> error;
         multi_records -> multi_records;
         [_Key, Data, Meta] ->
-            {D, M} = data_to_update(Data, Meta, NewProp),
+            {D, M} = data_to_update(Data, Meta, confirm_json(NewProp)),
             NewItem = {Tab, Key, D, M},
             {atomic, ok} = mnesia:transaction(fun()->mnesia:write(NewItem) end),
             ok
@@ -127,9 +134,9 @@ data_to_update(Data, Meta, NewProp) ->
     CreateTime = maps:get(created_at, Meta, UpdateTime),
     D = maps:merge(Data, NewProp),
     M = #{
-        created_at => CreateTime,
-        update_logs => [[UpdateTime, OldProp, NewProp]|OldLog],
-        lastmodified_at => UpdateTime},
+        <<"created_at">> => CreateTime,
+        <<"update_logs">> => [[UpdateTime, OldProp, NewProp]|OldLog],
+        <<"lastmodified_at">> => UpdateTime},
     {D, M}.
 prop_to_update(Data, NewProp) ->
     L = maps:to_list(NewProp),
@@ -139,7 +146,8 @@ prop_to_update(Data, NewProp) ->
 
 %% got an item with key()
 %% not allowd duplicate key()
-get(Key, {?MODULE, Tab}) ->
+get(Key0, {?MODULE, Tab}) ->
+    Key = confirm_json(Key0),
     Cond = qlc:q([
         X || {_, K0, _, _} = X <- mnesia:table(Tab),
         Key =:= K0
@@ -153,7 +161,13 @@ get(Key, {?MODULE, Tab}) ->
     end.
 
 %% find all items with property
-find_all(PropK, Op, PropV, {?MODULE, Tab}) ->
+find_all(PropK0, Op0, PropV0, {?MODULE, Tab}) ->
+    PropK = confirm_json(PropK0),
+    PropV = confirm_json(PropV0),
+    Op = if
+        is_function(Op0) -> Op0;
+        true -> pp:to_atom(Op0)
+    end,
     case lists:member(Op, [eq, lt, gt, lte, gte]) of
         true -> Fun = fun ?MODULE:Op/2;
         false when is_function(Op) -> Fun = Op

@@ -15,20 +15,20 @@ table_test() ->
     ?assertEqual(not_found, T:get(2)),
 
     {ok, K1} = T:create(#{name=>adi, age=>36}),
-    ?assertMatch([K1, #{name:=adi}, _], T:get(K1)),
+    ?assertMatch([K1, #{<<"name">> := <<"adi">>}, _], T:get(K1)),
 
     ?assertEqual(ok, T:create(1, #{name=>yifan, age=>10})),
-    ?assertMatch([1, #{name:=yifan}, _], T:get(1)),
+    ?assertMatch([1, #{<<"name">> := <<"yifan">>}, _], T:get(1)),
 
     ?assertEqual(ok, T:update(1, #{name=>erfan})),
-    ?assertMatch([1, #{name:=erfan}, _], T:get(1)),
+    ?assertMatch([1, #{<<"name">> := <<"erfan">>}, _], T:get(1)),
     ?assertEqual(2, T:size()),
     ?assertEqual(lists:sort([1,K1]), lists:sort(T:all_keys())),
-    ?assertMatch([[1, #{name:=erfan}, _], [K1, _, _]], lists:sort(T:all())),
+    ?assertMatch([[1, #{<<"name">> := <<"erfan">>}, _], [K1, _, _]], lists:sort(T:all())),
 
     %% search item
-    ?assertMatch([K1, #{name:=adi}, _], T:find(name, eq, adi)),
-    ?assertMatch([K1, #{name:=adi}, _], T:find(name, fun(V1, V2) -> V1 =:= V2 end, adi)),
+    ?assertMatch([K1, #{<<"name">> := <<"adi">>}, _], T:find(name, eq, adi)),
+    ?assertMatch([K1, #{<<"name">> := <<"adi">>}, _], T:find(name, fun(V1, V2) -> V1 =:= V2 end, adi)),
 
     %% search key
     ?assertEqual(K1, T:find_key(name, eq, adi)),
