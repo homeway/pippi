@@ -64,8 +64,8 @@ create_table(Tab, CopyType) ->
     R = mnesia:create_table(Tab,
         [{CopyType, [node()]}, {attributes, [key, map, meta]}]),
     case R of
-        {atomic, ok} -> ok;
-        {aborted, {already_exists, _}} -> ok;
+        {atomic, ok} -> {ok, table(Tab)};
+        {aborted, {already_exists, _}} -> {ok, table(Tab)};
         Reason -> Reason
     end.
 

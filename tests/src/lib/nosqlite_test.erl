@@ -3,11 +3,12 @@
 -include_lib("eunit/include/eunit.hrl").
 
 table_test() ->
-    ?assertEqual(ok, nosqlite:create_table(users, ram)),
+    ?assertMatch({ok, _}, nosqlite:create_table(users, ram)),
     %% support confirm create
-    ?assertEqual(ok, nosqlite:create_table(users, ram)),
+    ?assertMatch({ok, _}, nosqlite:create_table(users, ram)),
 
     nosqlite:clear_table(users),
+    {ok, T} = nosqlite:create_table(users, ram),
     T = nosqlite:table(users),
 
     %% crud
