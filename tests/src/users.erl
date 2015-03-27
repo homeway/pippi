@@ -9,3 +9,5 @@ total() ->
     length(Tab:all()).
 
 get(_Id) -> none.
+
+size() -> 10.
