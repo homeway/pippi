@@ -84,12 +84,6 @@ size({?MODULE, Tab}) ->
 %% construct a tuple module
 table(Tab) -> {?MODULE, Tab}.
 
-%% private for create and update
-%% confirm data input compatible with json
-confirm_json(Data) ->
-    D1 = jiffy:encode(Data),
-    jiffy:decode(D1, [return_maps]).
-
 %% create an item with map()
 create(Data, {?MODULE, Tab}) ->
     K = pp:uuid(),
@@ -100,7 +94,7 @@ create(Data, {?MODULE, Tab}) ->
 
 %% create an item with key() and map()
 create(Key, Data, {?MODULE, Tab}) ->
-    Item = {Tab, confirm_json(Key), confirm_json(Data), #{
+    Item = {Tab, pp:confirm_json(Key), pp:confirm_json(Data), #{
         <<"ver">> => ?ver,
         <<"created_at">> => pp:now_to_human(),
         <<"lastmodified_at">> => pp:now_to_human()
@@ -109,18 +103,18 @@ create(Key, Data, {?MODULE, Tab}) ->
 
 %% delete an item with key()
 delete(Key, {?MODULE, Tab}) ->
-    Item = {Tab, confirm_json(Key)},
+    Item = {Tab, pp:confirm_json(Key)},
     {atomic, ok} = mnesia:transaction(fun()-> mnesia:delete(Item) end), ok.
 
 %% update an old item() with key() and new property map()
 update(Key0, NewProp, {?MODULE, Tab}) ->
-    Key = confirm_json(Key0),
+    Key = pp:confirm_json(Key0),
     case get(Key, {?MODULE, Tab}) of
         not_found -> not_found;
         error -> error;
         multi_records -> multi_records;
         [_Key, Data, Meta] ->
-            {D, M} = data_to_update(Data, Meta, confirm_json(NewProp)),
+            {D, M} = data_to_update(Data, Meta, pp:confirm_json(NewProp)),
             NewItem = {Tab, Key, D, M},
             {atomic, ok} = mnesia:transaction(fun()->mnesia:write(NewItem) end),
             ok
@@ -147,7 +141,7 @@ prop_to_update(Data, NewProp) ->
 %% got an item with key()
 %% not allowd duplicate key()
 get(Key0, {?MODULE, Tab}) ->
-    Key = confirm_json(Key0),
+    Key = pp:confirm_json(Key0),
     Cond = qlc:q([
         X || {_, K0, _, _} = X <- mnesia:table(Tab),
         Key =:= K0
@@ -162,8 +156,8 @@ get(Key0, {?MODULE, Tab}) ->
 
 %% find all items with property
 find_all(PropK0, Op0, PropV0, {?MODULE, Tab}) ->
-    PropK = confirm_json(PropK0),
-    PropV = confirm_json(PropV0),
+    PropK = pp:confirm_json(PropK0),
+    PropV = pp:confirm_json(PropV0),
     Op = if
         is_function(Op0) -> Op0;
         true -> pp:to_atom(Op0)
