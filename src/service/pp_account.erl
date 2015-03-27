@@ -44,8 +44,24 @@ logout({?MODULE, Pid}) ->
 status({?MODULE, Pid}) ->
     gen_fsm:sync_send_all_state_event(Pid, status, ?TIMEOUT).
 
+%% convert module and function to atom() in methods
 methods({?MODULE, Pid}) ->
-    gen_fsm:sync_send_event(Pid, methods, ?TIMEOUT).
+    Methods1 = gen_fsm:sync_send_event(Pid, methods, ?TIMEOUT),
+    lists:map(fun(I) ->
+        case I of
+            [M1, Funs1] when is_list(Funs1) ->
+                Funs2 = lists:map(fun(F) ->
+                    case F of
+                        [Fun|Args] -> [pp:to_atom(Fun)|Args];
+                        Fun -> pp:to_atom(Fun)
+                    end
+                end, Funs1),
+                [pp:to_atom(M1), Funs2];
+            [M1, Fun] ->
+                [pp:to_atom(M1, Fun)];
+            M1 -> pp:to_atom(M1)
+        end
+    end, Methods1).
 
 %% gen_fsm callbacks
 init([#{offline_timeout:=OfflineTimeout}=Conf]) ->
