@@ -13,9 +13,9 @@ init({tcp, http}, _Req, _Opts) ->
 
 %% connect to pp_account
 websocket_init(_TransportName, Req, _Opts) ->
-    A = pp_account:start_link(),
-    Methods = A:methods(),
-    {ok, Req, #{account=>A, methods=>Methods}}.
+    Ac = pp_account:start_link(),
+    Methods = Ac:methods(),
+    {ok, Req, #{account=>Ac, methods=>Methods}}.
 
 %% text command
 %%
@@ -53,6 +53,9 @@ websocket_handle({text, Msg}, Req, #{account:=Ac, methods:=Methods}=State) ->
 
 websocket_handle(_Data, Req, State) ->
     {ok, Req, State}.
+
+websocket_info(offline, Req, State) ->
+    {reply, {text, jiffy:encode(offline)}, Req, State};
 
 websocket_info(update_methods, Req, #{account:=Ac}=State) ->
     {ok, Req, State#{methods=>Ac:methods()}};

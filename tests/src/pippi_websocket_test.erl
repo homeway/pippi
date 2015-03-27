@@ -8,7 +8,7 @@ clear_msg() ->
 
 got_msg() ->
     receive  Msg -> Msg
-    after    50 -> {text, nothing} end.
+    after    50 -> {text, <<"\"nothing\"">>} end.
 
 ws_req(Cmd) ->
     jiffy:encode(Cmd).

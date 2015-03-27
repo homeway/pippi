@@ -12,9 +12,11 @@ angular.module('app', [
       url: '/login',
       templateUrl: 'views/login.html',
       controller: function($scope, $window, ws){
+        $scope.user = "adi";
+        $scope.pass = "123";
         ws.connect();
-        ws.send(JSON.stringify(['account', 'login', {user: 'adi', pass: '123'}]));
         $scope.login = function() {
+          ws.send(JSON.stringify(['login', [$scope.user, $scope.pass]]));
           console.log($scope.user + "/" + $scope.pass)
         }
       }
