@@ -52,16 +52,19 @@ init([#{offline_timeout:=OfflineTimeout}=Conf]) ->
     {ok, offline, Conf, OfflineTimeout}.
 
 %％ login when offline
-offline({login, #{user := <<"adi">>, pass := <<"123">>}}, _From, State) ->
-    {reply, ok, online, State#{user=> <<"adi">>}, maps:get(online_timeout, State)};
-
-%% login when offline
-offline({login, _Auth}, _From, State) ->
-    {reply, {error, bad_user_or_password}, offline, State, maps:get(offline_timeout, State)};
+offline({login, #{user := User, pass := Pass}}, _From, State) ->
+    Tab = nosqlite:table(?MODULE),
+    case Tab:find(user, eq, User) of
+        [_, #{pass:=Pass}, _] ->
+            {reply, ok, online, State#{user=> User}, maps:get(online_timeout, State)};
+        _ ->
+            {reply, {error, bad_user_or_password}, offline, State, maps:get(offline_timeout, State)}
+    end;
 
 %% return methods not yet login
 offline(methods, _From, State) ->
-    Methods = [[users, [all, get]]],
+    Tab = nosqlite:table(pp_role),
+    [_, #{methods:=Methods}, _] = Tab:get(everyone),
     {reply, Methods, offline, State, maps:get(offline_timeout, State)};
 
 %% no action
@@ -81,8 +84,14 @@ online(logout, _From, State) ->
     {reply, ok, offline, State, maps:get(offline_timeout, State)};
 
 %% return methods after login
-online(methods, _From, State) ->
-    Methods = [users],
+online(methods, _From, #{user:=User}=State) ->
+    TabUser = nosqlite:table(?MODULE),
+    TabRole = nosqlite:table(pp_role),
+    [_, #{roles:=Roles}, _] = TabUser:find(user, eq, User),
+    Methods = lists:foldl(fun(Role, Acc) ->
+        [_, #{methods:=Methods1}, _] = TabRole:get(Role),
+        Acc ++ Methods1
+    end, [], [everyone|Roles]),
     {reply, Methods, online, State, maps:get(offline_timeout, State)};
 
 %% no action
