@@ -3,11 +3,11 @@
 -include_lib("eunit/include/eunit.hrl").
 
 table_test() ->
-    mnesia:delete_table(users),
     ?assertEqual(ok, nosqlite:create_table(users, ram)),
     %% support confirm create
     ?assertEqual(ok, nosqlite:create_table(users, ram)),
 
+    nosqlite:clear_table(users),
     T = nosqlite:table(users),
 
     %% crud

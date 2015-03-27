@@ -1,6 +1,8 @@
 -module(nosqlite).
 -export([
-    create_schema/1, create_table/2, table/1, size/1,
+    create_schema/1, create_table/2,
+    delete_table/1, clear_table/1,
+    table/1, size/1,
     create/2, create/3, delete/2, update/3, get/2,
     find/4, find_all/4, find_key/4,
     eq/2, lt/2, gt/2, lte/2, gte/2,
@@ -25,11 +27,11 @@
 %%%
 %%% data schema:
 %%%
-%%% {table(), key(), map()}
+%%% {table(), key(), data(), meta()}
 %%%   - table(), table name
 %%%   - key(), item key in table
-%%%   - map(), data store in table with map()
-%%%       data map include some property auto generated:
+%%%   - data(), user data store  with map()
+%%%   - meta(), system data store with map():
 %%%       created_at, lastmodified_at, update_logs
 %%%
 %%% you can use tuple module style
@@ -37,17 +39,16 @@
 %%% T:all().
 %%%
 %%% we use a json-firendly style to return data
-%%% [key(), map()]
-%%% [[key(), map()]]
+%%% [key(), data(), meta())]
+%%% [[key(), data(), meta()]]
 %%%
 %%% change log: change table schema with [key(), data(), meta()]
 %%%
 %%% todo: page/1, all/1 with pagination)
 %%% todo: search/2, condition search with pagination
-%%% todo: drop_table/1
-%%% todo: copy_table/2, create a table from an existing
-%%% todo: table_to_json/2, export table data to json file
-%%% todo: table_from_json/2, import data in json file to an empty table
+%%% todo: second index
+%%% todo: meta info table
+%%% todo: disc log
 
 %% init database schema
 create_schema(Tables) ->
@@ -67,6 +68,14 @@ create_table(Tab, CopyType) ->
         {aborted, {already_exists, _}} -> ok;
         Reason -> Reason
     end.
+
+%% delete table
+delete_table(Tab) ->
+    {atomic, ok} = mnesia:delete_table(Tab), ok.
+
+%% delete all data in table
+clear_table(Tab) ->
+    {atomic, ok} = mnesia:clear_table(Tab), ok.
 
 %% table info
 size({?MODULE, Tab}) ->
