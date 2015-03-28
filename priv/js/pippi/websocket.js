@@ -105,22 +105,26 @@ angular.module('pippi.websocket', [])
       onMessage : function(Cmd, handler) { add_to("onMessage."+Cmd, handler) },
 
       send : function(Msg) {
-        confirm_connect();
         if(is_onnected()) {
           dataMap.websocket.send(Msg);
         }
         else {
           msgQueue.push(Msg);
         }
+        confirm_connect();
       },
 
       call : function(Cmd, Func) {
-        confirm_connect();
+        callSeq++,
+        callQueue.push({'seq': callSeq, 'func': Func});
+        Command = JSON.stringify(['call', callSeq, Cmd]);
         if(is_onnected()) {
-          callSeq++,
-          callQueue.push({'seq': callSeq, 'func': Func});
-          dataMap.websocket.send(JSON.stringify(['call', callSeq, Cmd]));
+          dataMap.websocket.send(Command);
         }
+        else {
+          msgQueue.push(Command);
+        }
+        confirm_connect();
       },
 
       isConnect : function() { is_onnected() },
