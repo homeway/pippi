@@ -47,7 +47,7 @@ command(Cmd, _) ->
 websocket_handle({text, Msg}, Req, State) ->
     R = case jiffy:decode(Msg, [return_maps]) of
         [<<"call">>, Seq, Cmd] ->
-            [Seq, pp:confirm_json(command(Cmd, State))];
+            [<<"call_resp">>, Seq, pp:confirm_json(command(Cmd, State))];
         Cmd ->
             pp:confirm_json(command(Cmd, State))
     end,

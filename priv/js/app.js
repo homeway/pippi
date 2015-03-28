@@ -16,7 +16,14 @@ angular.module('app', [
         $scope.pass = "123";
         ws.connect();
         $scope.login = function() {
-          ws.call(['login', [$scope.user, $scope.pass]]);
+          ws.call(['login', [$scope.user, $scope.pass]], function(Resp) {
+            if(Resp=='ok') {
+              console.log('login success!');
+            }
+            else {
+              console.log(Resp);
+            }
+          });
           console.log($scope.user + "/" + $scope.pass)
         }
       }

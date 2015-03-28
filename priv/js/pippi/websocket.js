@@ -15,6 +15,26 @@ angular.module('pippi.websocket', [])
         }
       }
     };
+
+    var call_func = function(Seq, data) {
+      console.log("seq: " + Seq, data);
+      console.log(callQueue);
+
+      TempQueue = [];
+      for(var i=0; i < callQueue.length; i++) {
+        Item = callQueue.pop();
+        if(Item.seq == Seq){
+          Item.func(data);
+          callQueue.concat(TempQueue);
+          break;
+        }
+        else {
+          TempQueue.push(callQueue[i]);
+        }
+      }
+      console.log(callQueue);
+    };
+
     var add_to = function(eventType, handler) {
       //multiple event listener
       if (!dataMap[eventType]) {
@@ -46,11 +66,17 @@ angular.module('pippi.websocket', [])
         websocket.onerror   = function(evt) { fire("onError", evt) };
         websocket.onmessage = function(evt) {
           var Res = JSON.parse(evt.data);
-          if(Res.length > 1) {
-            fire("onMessage."+Res[0], {data: Res})
+          if(Res.length == 3 && Res[0] == 'call_resp')  {
+            console.log(Res);
+            call_func(Res[1], Res[2]);
           }
           else {
-            fire("onMessage", evt)
+            if(Res.length > 1) {
+              fire("onMessage."+Res[0], {data: Res})
+            }
+            else {
+              fire("onMessage", evt)
+            }
           }
         };
         dataMap['websocket']  = websocket;
@@ -91,8 +117,9 @@ angular.module('pippi.websocket', [])
       call : function(Cmd, Func) {
         confirm_connect();
         if(is_onnected()) {
-          callQueue.push(Func);
-          dataMap.websocket.send(JSON.stringify(['call', callSeq++, Cmd]));
+          callSeq++,
+          callQueue.push({'seq': callSeq, 'func': Func});
+          dataMap.websocket.send(JSON.stringify(['call', callSeq, Cmd]));
         }
       },
 
