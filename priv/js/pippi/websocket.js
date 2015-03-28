@@ -3,6 +3,8 @@ angular.module('pippi.websocket', [])
 .factory('ws', function() {
     var dataMap = {wsHost: 'ws://localhost:8080/ws'};
     var msgQueue = [];
+    var callQueue = [];
+    var callSeq = 0;
 
     var fire = function(eventType, event) {
       // console.log(dataMap);
@@ -83,6 +85,14 @@ angular.module('pippi.websocket', [])
         }
         else {
           msgQueue.push(Msg);
+        }
+      },
+
+      call : function(Cmd, Func) {
+        confirm_connect();
+        if(is_onnected()) {
+          callQueue.push(Func);
+          dataMap.websocket.send(JSON.stringify(['call', callSeq++, Cmd]));
         }
       },
 

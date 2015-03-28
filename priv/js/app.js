@@ -16,7 +16,7 @@ angular.module('app', [
         $scope.pass = "123";
         ws.connect();
         $scope.login = function() {
-          ws.send(JSON.stringify(['login', [$scope.user, $scope.pass]]));
+          ws.call(['login', [$scope.user, $scope.pass]]);
           console.log($scope.user + "/" + $scope.pass)
         }
       }

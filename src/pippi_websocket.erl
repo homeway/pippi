@@ -23,33 +23,37 @@ websocket_init(_TransportName, Req, _Opts) ->
 %% {text, json(logout)}
 %% {text, json(raw, M, F, A)}
 %% {text, json(amqp, M, F, A)}
-websocket_handle({text, Msg}, Req, #{account:=Ac, methods:=Methods}=State) ->
-    Cmds = jiffy:decode(Msg, [return_maps]),
-    R = case Cmds of
-        [<<"login">>, [User, Pass]] ->
-            case Ac:login(User, Pass) of
-                ok -> self() ! update_methods, ok;
-                Error -> Error
-            end;
-        [<<"logout">>] ->
-            R1 = Ac:logout(),
-            self() ! update_methods, R1;
-        [<<"status">>] ->
-            Ac:status();
-        [<<"methods">>] ->
-            maps:get(methods, State, []);
-        [M, F] ->
-            call(M, F, [], Methods);
-        [M, F, A] ->
-            call(M, F, A, Methods);
-        _ ->
-            erlang:display(Cmds),
-            pp:display(Cmds),
-            [error, no_this_action, Cmds]
+command([<<"login">>, [User, Pass]], #{account:=Ac}) ->
+    case Ac:login(User, Pass) of
+        ok -> self() ! update_methods, ok;
+        Error -> Error
+    end;
+command([<<"logout">>], #{account:=Ac}) ->
+    R1 = Ac:logout(),
+    self() ! update_methods, R1;
+command([<<"status">>], #{account:=Ac}) ->
+    Ac:status();
+command([<<"methods">>], #{methods:=Methods}) ->
+    Methods;
+command([M, F], #{methods:=Methods}) ->
+    call(M, F, [], Methods);
+command([M, F, A], #{methods:=Methods}) ->
+    call(M, F, A, Methods);
+command(Cmd, _) ->
+    erlang:display(Cmd),
+    pp:display(Cmd),
+    [error, no_this_action, Cmd].
+
+websocket_handle({text, Msg}, Req, State) ->
+    R = case jiffy:decode(Msg, [return_maps]) of
+        [<<"call">>, Seq, Cmd] ->
+            [Seq, pp:confirm_json(command(Cmd, State))];
+        Cmd ->
+            pp:confirm_json(command(Cmd, State))
     end,
-    pp:display({"req : ", Cmds}),
+    pp:display({"req : ", Cmd}),
     pp:display({"resp: ", R}),
-    {reply, {text, jiffy:encode(pp:confirm_json(R))}, Req, State};
+    {reply, {text, jiffy:encode(R)}, Req, State};
 
 websocket_handle(_Data, Req, State) ->
     {ok, Req, State}.
