@@ -1,14 +1,14 @@
 angular
   .module('app')
 
-  .controller('ContactsController', function($scope, ws) {
+  .controller('Contacts.Controller', function($scope, ws) {
     $scope.contacts = [
       {id: "a001", name: "Alice" },
       {id: "a002", name: "Bob" }
     ];
   })
 
-  .controller('ContactsDetailController', function($scope, $stateParams, ws) {
+  .controller('Contacts.Detail.Controller', function($scope, $stateParams, ws) {
     var get_item = function() {
       var Items = $scope.contacts;
       var Id = $stateParams.id;

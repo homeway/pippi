@@ -1,17 +1,14 @@
 angular
   .module('app')
 
-  .controller('MainController', function($scope, $location, ws) {
-    ws.connect();
-    ws.onMessage('presence', function(e) {
-      if(e.data[0] == 'offline') {
-        console.log(e.data[0]);
-        $scope.$apply(function() {
-          $location.path('/login');
-        })
-      }
-      else {
-        console.log(e.data);
-      }
-    });
+  .controller('Main.Controller', function($scope, $state, ws) {
+    $scope.logout = function() {
+      ws.call(['logout'], function(Resp) {
+        if(Resp == 'ok') {
+          presence = 'offline';
+          console.log('logout');
+          $state.go('login');
+        }
+      })
+    }
   })

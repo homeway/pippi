@@ -14,18 +14,22 @@ angular.module('app', [
       templateUrl: 'views/login.html'
     })
 
-    .state('contacts', {
+    .state('main', {
+      templateUrl: 'views/main.html'
+    })
+
+    .state('main.contacts', {
       abstract: true,
-      url: '/contacts',
+      url: '^/contacts',
       templateUrl: 'views/contacts.html'
     })
 
-    .state('contacts.list', {
+    .state('main.contacts.list', {
       url: '/list',
       templateUrl: 'views/contacts.list.html'
     })
 
-    .state('contacts.detail', {
+    .state('main.contacts.detail', {
       url: '/:id',
       templateUrl: 'views/contacts.detail.html'
     })  
