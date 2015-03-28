@@ -1,5 +1,5 @@
 <!-- contacts.list.html -->
-<ul>
+<ul ng-controller='ContactsDetailController'>
     <li ng-repeat="item in contacts">
         <a ng-href="#/contacts/{{item.id}}">{{item.name}}</a>
     </li>
