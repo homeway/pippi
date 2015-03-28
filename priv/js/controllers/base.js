@@ -1,13 +1,13 @@
 angular
   .module('app')
 
-  .controller('Base.Controller', function($scope, $state, ws) {
-    $scope.presence = 'offline';
+  .controller('Base.Controller', function($rootScope, $scope, $state, ws) {
+    $rootScope.presence = 'offline';
     ws.connect();
     ws.onMessage('presence', function(e) {
       if(e.data[0] == 'offline') {
-      $scope.presence = 'offline';
         console.log(e.data[0]);
+        $rootScope.presence = 'offline';
         $state.go('login');
       }
       else {
@@ -15,7 +15,7 @@ angular
       }
     });
     ws.onClose(function() {
-      $scope.presence = 'offline';
+      $rootScope.presence = 'offline';
       $state.go('login');
     });
   })
