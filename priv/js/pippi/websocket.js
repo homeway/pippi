@@ -72,7 +72,7 @@ angular.module('pippi.websocket', [])
           }
           else {
             if(Res.length > 1) {
-              fire("onMessage."+Res[0], {data: Res})
+              fire("onMessage."+Res[0], {data: Res.slice(1, Res.length)})
             }
             else {
               fire("onMessage", evt)

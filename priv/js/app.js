@@ -4,6 +4,7 @@ angular.module('app', [
 ])
 
 .config(function($stateProvider, $urlRouterProvider) {
+
   $urlRouterProvider.otherwise("/login");
 
   $stateProvider
@@ -12,15 +13,18 @@ angular.module('app', [
       url: '/login',
       templateUrl: 'views/login.html',
       controller: function($scope, $window, ws){
+        ws.connect();
         $scope.user = "adi";
         $scope.pass = "123";
-        ws.connect();
         $scope.login = function() {
           ws.call(['login', [$scope.user, $scope.pass]], function(Resp) {
             if(Resp=='ok') {
               console.log('login success!');
             }
-            else {
+            else if(Resp[0] == 'error' && Resp[1] == 'online') {
+              console.log('already login!');
+            }
+            else{
               console.log(Resp);
             }
           });

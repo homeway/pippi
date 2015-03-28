@@ -59,13 +59,13 @@ websocket_handle(_Data, Req, State) ->
     {ok, Req, State}.
 
 websocket_info(offline, Req, State) ->
-    {reply, {text, jiffy:encode(offline)}, Req, State};
+    {reply, {text, jiffy:encode([presence, offline])}, Req, State};
 
 websocket_info(update_methods, Req, #{account:=Ac}=State) ->
     {ok, Req, State#{methods=>Ac:methods()}};
 
-websocket_info({client, Msg}, Req, State) ->
-    {reply, {text, Msg}, Req, State};
+websocket_info({notify, Notify}, Req, State) ->
+    {reply, {text, jiffy:encode(pp:to_list(Notify))}, Req, State};
 
 websocket_info(_Info, Req, State) ->
     {ok, Req, State}.

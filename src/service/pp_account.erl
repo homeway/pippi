@@ -17,7 +17,7 @@ start(SessionTimeout, Slot) ->
     {?MODULE, Pid}.
 
 %% default timeout is 1 hour
-start_link() -> start_link(3600000, self()).
+start_link() -> start_link(3600, self()).
 start_link(SessionTimeout, Slot) ->
     {ok, Pid} = gen_fsm:start_link(?MODULE, [#{
         session_timeout => SessionTimeout,
