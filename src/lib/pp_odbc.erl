@@ -1,6 +1,13 @@
 %% -*- mode: nitrogen -*-
+%%% pp_odbc is a module to access oracle
+%%%
+%%% issues:
+%%%   1) sql cann't contain tail ';'
+%%%   2) the odbc:describe_table/2 does'nt work
+%%%      because desc method not in oracle server but in sqlplus
+%%%
 -module(pp_odbc).
--export([open/0, open/3, query/2, close/1, desc/2,
+-export([open/0, open/3, query/2, exec_sql/2, close/1, desc/2,
     count/2, count/3, page/2, page/3, page/4, all/2]).
 
 open() ->
@@ -8,22 +15,28 @@ open() ->
 
 open(DSN, UID, PWD) ->
     case odbc:connect(io_lib:format("DSN=~s;UID=~s;PWD=~s",
-        [pp:to_binary(DSN), pp:to_binary(UID), pp:to_binary(PWD)]), []) of
+        [pp:to_binary(DSN), pp:to_binary(UID), pp:to_binary(PWD)]),
+        [{binary_strings, on}, {trace_driver, on}]) of
         {ok, Ref} ->
             {?MODULE, Ref};
         Error -> Error
     end.
 
-query(Sql, {?MODULE, Ref}) ->
+exec_sql(Sql, {?MODULE, Ref}) ->
     case odbc:sql_query(Ref, Sql) of
         {error, Reason} when is_atom(Reason)->
             Reason;
         {error, Reason} ->
             io:format("~ts~n", [list_to_binary(Reason)]),
             Reason;
-        R -> return_maps(R)
+        R -> R
     end.
 
+%% return [map()]
+query(Sql, {?MODULE, Ref}) ->
+    return_maps(exec_sql(Sql, {?MODULE, Ref})).
+
+%% json prepared by return [map()]
 return_maps({selected, Columns0, Rows})->
     Columns = [to_maps_type(C) || C <- Columns0],
     lists:map(fun(Row0) ->
@@ -47,7 +60,7 @@ count(Sql, {?MODULE, Ref}) ->
 count(Sql0, Size, {?MODULE, Ref}) ->
     Sql = io_lib:format("select count(1) from (~ts)", [pp:to_binary(Sql0)]),
     {selected, _, [{C}]} = odbc:sql_query(Ref, Sql),
-    Count = list_to_integer(C),
+    Count = binary_to_integer(C),
     Pages = case Count rem Size of
         0 -> Count div Size;
         _ -> Count div Size + 1
@@ -78,6 +91,35 @@ close({?MODULE, Ref}) ->
     odbc:disconnect(Ref).
 
 
-to_maps_type(I) when is_integer(I) -> I;
-to_maps_type(L) when is_list(L)-> list_to_binary(L);
+%% 从actul odbc驱动 访问oracle时有一个bug（未得到官方证实）
+%% oracle的varchar2默认以byte为单位，汉字为2个byte表示
+%% 但erlang/odbc则以3个byte表示，例如字段为18个汉字，长度限制为50 bytes
+%% 则erlang/odbc读取50bytes后截断，而oracle则可正常存储25个汉字
+%%
+%% 不完整的utf8编码会引起jiffy:encode异常或字符串使用乱码
+%% 这里采用临时解决方案，即截断多余字符，保障utf8编码可正常解析
+%% 试探方式是采用jiffy:encode转换，分页查询的情况下效率完全可以接受
+to_maps_type(L) when is_list(L) -> list_to_binary(L);
+to_maps_type(B) when is_binary(B) ->
+    Size = size(B),
+    if
+        Size > 3 ->
+            try jiffy:encode(B) of
+                _ -> B
+            catch
+                throw:{error,{invalid_string, _}} ->
+                    Size1 = Size - 1,
+                    <<B1:Size1/binary, _/binary>> = B,
+                    try jiffy:encode(B1) of
+                        _ -> B1
+                    catch
+                        throw:{error,{invalid_string, _}} ->
+                            Size2 = Size - 2,
+                            <<B2:Size2/binary, _/binary>> = B,
+                            B2
+                    end
+            end;
+        true -> B
+    end;
+
 to_maps_type(Other) -> Other.
