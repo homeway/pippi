@@ -16,7 +16,7 @@ open() ->
 open(DSN, UID, PWD) ->
     case odbc:connect(io_lib:format("DSN=~s;UID=~s;PWD=~s",
         [pp:to_binary(DSN), pp:to_binary(UID), pp:to_binary(PWD)]),
-        [{binary_strings, on}, {trace_driver, on}]) of
+        [{binary_strings, on}]) of
         {ok, Ref} ->
             {?MODULE, Ref};
         Error -> Error
@@ -79,7 +79,11 @@ page(Sql, Size, Num, {?MODULE, Ref}) ->
     PageSql = io_lib:format("SELECT * FROM (SELECT A.*, ROWNUM RN FROM (~ts) A WHERE ROWNUM <= ~B) WHERE RN >= ~B", [pp:to_binary(Sql), To, From]),
     query(PageSql, {?MODULE, Ref}).
 
-desc(Table, {?MODULE, Ref}) ->
+desc(Table0, {?MODULE, Ref}) ->
+    Table = if
+        is_list(Table0) -> string:to_upper(Table0);
+        true -> Table0
+    end,
     Sql = io_lib:format("select decode( t.table_name, lag(t.table_name, 1) over(order by t.table_name), null, t.table_name ) as table_name, t.column_name, t.data_type, cc.constraint_name, uc.constraint_type from user_tab_columns t left join user_cons_columns cc on (cc.table_name = t.table_name and cc.column_name = t.column_name) left join user_constraints uc on (t.table_name = uc.table_name and uc.constraint_name = cc.constraint_name ) where t.table_name in ('~s')", [pp:to_binary(Table)]),
     query(Sql, {?MODULE, Ref}).
 
