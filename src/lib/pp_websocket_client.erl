@@ -1,5 +1,5 @@
 %% -*- mode: nitrogen -*-
--module(test_ws_handler).
+-module(pp_websocket_client).
 -behaviour(websocket_client_handler).
 
 -export([

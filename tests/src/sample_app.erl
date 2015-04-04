@@ -17,8 +17,12 @@ start(_Type, _Args) ->
       {"/ws", pippi_websocket, []}
     ]}
   ]),
-  {ok, _} = cowboy:start_http(http, 100, [{port, 8964}],
-    [{env, [{dispatch, Dispatch}]}]),
+  {ok, _} = cowboy:start_http(
+    http,
+    100,
+    [{port, 8964}],
+    [{env, [{dispatch, Dispatch}]}]
+  ),
   erlang:display(cowboy_started),
   sample_sup:start_link().
 
