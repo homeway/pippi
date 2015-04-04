@@ -1,7 +1,7 @@
 %% -*- mode: nitrogen -*-
 -module(pp_utils).
 -export([uuid/0]).
--export([to_string/1, allow/2, confirm_json/1]).
+-export([to_string/1, allow/2, confirm_json/1, en_pass/1, de_pass/1]).
 
 %% to replace erlang:display/1
 to_string(L) -> lists:flatten(to_string(L, "")).
@@ -90,3 +90,10 @@ confirm_json(Tuple) when is_tuple(Tuple) ->
 confirm_json(Data) ->
     D1 = jiffy:encode(Data),
     jiffy:decode(D1, [return_maps]).
+
+en_pass(Str) ->
+    Cmd = io_lib:format("java -cp \"./priv/java\" Encrypter \"encode\" \"~ts\"", [pp:to_binary(Str)]),
+    pp:to_binary(os:cmd(Cmd)).
+de_pass(Str) ->
+    Cmd = io_lib:format("java -cp \"./priv/java\" Encrypter \"decode\" \"~ts\"", [pp:to_binary(Str)]),
+    pp:to_binary(os:cmd(Cmd)).
