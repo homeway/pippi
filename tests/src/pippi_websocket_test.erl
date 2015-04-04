@@ -22,10 +22,7 @@ main_test() ->
     nosqlite:create_table(users, ram),
     nosqlite:clear_table(users),
 
-    Ws = test_ws_handler:connect("ws://127.0.0.1:8080/ws"),
-
-    %% offline call
-    %%
+    Ws = test_ws_handler:connect("ws://127.0.0.1:8964/ws"),
 
     %% call status
     clear_msg(),

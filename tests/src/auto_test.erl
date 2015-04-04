@@ -2,8 +2,7 @@
 -export([start/0]).
 
 start() ->
-    Apps = [crypto, cowlib, ranch, cowboy, pippi, mnesia,
-            asn1, public_key, ssl, gun, sample, sync],
+    Apps = [crypto, cowlib, ranch, cowboy, pippi, mnesia, sample, sync],
     [application:start(A) || A <- Apps],
     RunTests = fun(Mods) ->
         ToTest1 = [Mod || Mod <- Mods, erlang:function_exported(Mod, test, 0)],

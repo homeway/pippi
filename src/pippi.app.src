@@ -7,8 +7,7 @@
 	{registered, [pippi_sup]},
 	{applications, [
 		kernel,
-		stdlib,
-		cowboy
+		stdlib
 	]},
 	{mod, {pippi_app, []}},
 	{env, []}

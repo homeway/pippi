@@ -2,7 +2,7 @@
 -module(pp_account).
 -behaviour(gen_fsm).
 -export([start/0, start/2, stop/1, start_link/0, start_link/2]).
--export([account_tuple/1, login/3, logout/1, status/1, methods/1]).
+-export([table/1, login/3, logout/1, status/1, methods/1]).
 
 %% gen_fsm callbacks
 -export([init/1, offline/2, offline/3, online/2, online/3]).
@@ -17,7 +17,7 @@ start(SessionTimeout, Slot) ->
     {?MODULE, Pid}.
 
 %% default timeout is 1 hour
-start_link() -> start_link(3600, self()).
+start_link() -> start_link(36000, self()).
 start_link(SessionTimeout, Slot) ->
     {ok, Pid} = gen_fsm:start_link(?MODULE, [#{
         session_timeout => SessionTimeout,
@@ -28,7 +28,7 @@ start_link(SessionTimeout, Slot) ->
 stop({?MODULE, Pid}) ->
     gen_fsm:send_all_state_event(Pid, stop).
 
-account_tuple(Pid) ->
+table(Pid) ->
     {?MODULE, Pid}.
 
 login(User, Pass, {?MODULE, Pid}) ->

@@ -58,7 +58,8 @@ return_map([Field|Fields], [Value|Values], Acc) ->
 count(Sql, {?MODULE, Ref}) ->
     count(Sql, 30, {?MODULE, Ref}).
 count(Sql0, Size, {?MODULE, Ref}) ->
-    Sql = io_lib:format("select count(1) from (~ts)", [pp:to_binary(Sql0)]),
+    Sql = io_lib:format(
+        "select count(1) from (~ts)", [pp:to_binary(Sql0)]),
     {selected, _, [{C}]} = odbc:sql_query(Ref, Sql),
     Count = binary_to_integer(C),
     Pages = case Count rem Size of
@@ -76,7 +77,10 @@ page(Sql, Num, {?MODULE, Ref}) ->
 page(Sql, Size, Num, {?MODULE, Ref}) ->
     From = Size * (Num - 1) + 1,
     To = From + Size - 1,
-    PageSql = io_lib:format("SELECT * FROM (SELECT A.*, ROWNUM RN FROM (~ts) A WHERE ROWNUM <= ~B) WHERE RN >= ~B", [pp:to_binary(Sql), To, From]),
+    PageSql = io_lib:format(
+        "SELECT * FROM (SELECT A.*, ROWNUM RN FROM (~ts) A WHERE ROWNUM <= ~B) WHERE RN >= ~B",
+        [pp:to_binary(Sql), To, From]),
+    io:format("~ts", [PageSql]),
     query(PageSql, {?MODULE, Ref}).
 
 desc(Table0, {?MODULE, Ref}) ->
