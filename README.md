@@ -2,13 +2,15 @@ pippi
 =====
 
 Pippi is an erlang web framework with websocket. 
-Need R17.
+
+Pippi need R17+. 
+<br>If you want to use [gut](https://github.com/unbalancedparentheses/gut), you should not use 17.3 because an exist ssl bug known.
 
 You can use pippi to create an erlang websocket backend, and use angularJS as web client.
 
 Follow is for pippi:
-- [pippi-gutenberge-generator](https://github.com/homeway/pippi-gutenberg-generator.git) is a gut generator for pippi backend app
-- [angular-pippi](https://github.com/homeway/angular-pippi.git) is an angular lib for pippi
+- [pippi-gutenberge-generator](https://github.com/homeway/pippi-gutenberg-generator) is a gut generator for pippi backend app
+- [angular-pippi](https://github.com/homeway/angular-pippi) is an angular lib for pippi
 
 ## features
 - a cowboy websocket backend
@@ -22,7 +24,7 @@ Follow is for pippi:
 
 ## usage
 ### how to create an pippi backend?
-if you use [gut](https://github.com/unbalancedparentheses/gut), it's so easy ...
+We use [gut](https://github.com/unbalancedparentheses/gut), a pretty generator.
 
 1) gut new pippi {{you_app_name}}
 ```
