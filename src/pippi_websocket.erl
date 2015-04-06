@@ -14,6 +14,7 @@ init({tcp, http}, _Req, _Opts) ->
 %% connect to pp_account
 websocket_init(_TransportName, Req, _Opts) ->
     Ac = pp_account:start_link(),
+    pp:display({account, Ac}),
     Methods = Ac:methods(),
     {ok, Req, #{account=>Ac, methods=>Methods}}.
 
@@ -44,15 +45,16 @@ command(Cmd, _) ->
     pp:display(Cmd),
     [error, no_this_action, Cmd].
 
-websocket_handle({text, Msg}, Req, State) ->
+websocket_handle({text, Msg}, Req, #{account:=Ac}=State) ->
     R = case jiffy:decode(Msg, [return_maps]) of
         [<<"call">>, Seq, Cmd] ->
+            pp:display({"req : ", Ac, [<<"call">>, Seq, Cmd]}),
             [<<"call_resp">>, Seq, pp:confirm_json(command(Cmd, State))];
         Cmd ->
+            pp:display({"req : ", Ac, Cmd}),
             pp:confirm_json(command(Cmd, State))
     end,
-    pp:display({"req : ", Cmd}),
-    pp:display({"resp: ", R}),
+    pp:display({"resp: ", Ac, R}),
     {reply, {text, jiffy:encode(R)}, Req, State};
 
 websocket_handle(_Data, Req, State) ->
