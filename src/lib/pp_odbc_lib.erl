@@ -1,4 +1,8 @@
 %% -*- mode: nitrogen -*-
+%%%-------------------------------------------------------------------
+%%% @author homeway <homeway.xue@gmail.com>
+%%% @copyright (C) 2015, homeway
+%%% @doc
 %%% pp_odbc is a module to access oracle
 %%%
 %%% issues:
@@ -6,12 +10,15 @@
 %%%   2) the odbc:describe_table/2 does'nt work
 %%%      because desc method not in oracle server but in sqlplus
 %%%
--module(pp_odbc).
--export([open/0, open/3, query/2, exec_sql/2, close/1, desc/2,
+%%% @end
+%%% Created :  7 Apr 2015 by homeway <homeway.xue@gmail.com>
+%%%-------------------------------------------------------------------
+-module(pp_odbc_lib).
+-export([open/3, query/2, exec_sql/2, close/1, desc/2,
     count/2, count/3, page/2, page/3, page/4, all/2]).
 
-open() ->
-    open(<<"myebig">>, <<"tayy">>, <<"tayy">>).
+% open() ->
+%     open(<<"myebig">>, <<"tayy">>, <<"tayy">>).
 
 open(DSN, UID, PWD) ->
     case odbc:connect(io_lib:format("DSN=~s;UID=~s;PWD=~s",
