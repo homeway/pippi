@@ -47,10 +47,10 @@ init([DSN, UID, Pass]) ->
 exec_sql(Sql)        -> gen_server:call(?SERVER, {exec_sql, Sql}).
 query(Sql)           -> gen_server:call(?SERVER, {'query', Sql}).
 count(Sql)           -> gen_server:call(?SERVER, {count, Sql}).
-count(Sql, Size)     -> gen_server:call(?SERVER, {count, Size, Sql}).
+count(Sql, Size)     -> gen_server:call(?SERVER, {count, Sql, Size}).
 page(Sql)            -> gen_server:call(?SERVER, {page, Sql}).
-page(Sql, Num)       -> gen_server:call(?SERVER, {page, Num, Sql}).
-page(Sql, Size, Num) -> gen_server:call(?SERVER, {page, Size, Num, Sql}).
+page(Sql, Num)       -> gen_server:call(?SERVER, {page, Sql, Num}).
+page(Sql, Num, Size) -> gen_server:call(?SERVER, {page, Sql, Num, Size}).
 desc(Tab)            -> gen_server:call(?SERVER, {desc, Tab}).
 
 %%%===================================================================
@@ -60,10 +60,10 @@ desc(Tab)            -> gen_server:call(?SERVER, {desc, Tab}).
 handle_call({exec_sql, Sql}, _F, #{tab:=T}=S)        -> {reply, T:exec_sql(Sql), S};
 handle_call({'query', Sql}, _F, #{tab:=T}=S)         -> {reply, T:query(Sql), S};
 handle_call({count, Sql}, _F, #{tab:=T}=S)           -> {reply, T:count(Sql), S};
-handle_call({count, Size, Sql}, _F, #{tab:=T}=S)     -> {reply, T:count(Sql, Size), S};
+handle_call({count, Sql, Size}, _F, #{tab:=T}=S)     -> {reply, T:count(Sql, Size), S};
 handle_call({page, Sql}, _F, #{tab:=T}=S)            -> {reply, T:page(Sql), S};
-handle_call({page, Num, Sql}, _F, #{tab:=T}=S)       -> {reply, T:page(Sql, Num), S};
-handle_call({page, Size, Num, Sql}, _F, #{tab:=T}=S) -> {reply, T:page(Size, Num, Sql), S};
+handle_call({page, Sql, Num}, _F, #{tab:=T}=S)       -> {reply, T:page(Sql, Num), S};
+handle_call({page, Sql, Num, Size}, _F, #{tab:=T}=S) -> {reply, T:page(Sql, Num, Size), S};
 handle_call({desc, Tab}, _F, #{tab:=T}=S)            -> {reply, T:desc(Tab), S}.
 
 handle_cast(stop, State) -> {stop, normal, State};

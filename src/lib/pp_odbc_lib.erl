@@ -81,7 +81,7 @@ page(Sql,{?MODULE, Ref}) ->
 page(Sql, Num, {?MODULE, Ref}) ->
     page(Sql, 30, Num, {?MODULE, Ref}).
 
-page(Sql, Size, Num, {?MODULE, Ref}) ->
+page(Sql, Num, Size, {?MODULE, Ref}) ->
     From = Size * (Num - 1) + 1,
     To = From + Size - 1,
     PageSql = io_lib:format(
