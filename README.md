@@ -97,3 +97,34 @@ angular.module('inspinia')
       });
     });
 ```
+
+## use rabbitmq
+### install rabbit client
+```
+    wget http://www.rabbitmq.com/releases/rabbitmq-erlang-client/v2.7.0/rabbit_common-2.7.0.ez
+    unzip rabbit_common-2.7.0.ez
+    ln -s rabbit_common-2.7.0 rabbit_common
+
+    wget http://www.rabbitmq.com/releases/rabbitmq-erlang-client/v2.7.0/amqp_client-2.7.0.ez
+    unzip amqp_client-2.7.0.ez
+    ln -s amqp_client-2.7.0 amqp_client
+```
+### rabbit example
+#### connect to rabbitmq
+```
+    1> Conn = pp_rabbit_lib:connect().
+      {pp_rabbit_lib,<0.23139.0>}
+    2> Ch = Conn:channel().
+      {pp_rabbit_lib,<0.23292.0>}
+```
+#### basic queue
+```
+    3> Ch:queue_declare(pippi).
+      {'queue.declare_ok',<<"pippi">>,0,0}
+    4> Ch:basic_publish("", pippi, "hello pippi!").
+      ok
+    5> Ch:basic_consume(pippi).
+      ok
+    6> pp_rabbit_lib:got_msg().
+      {1,<<"hello pippi!">>}
+```

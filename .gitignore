@@ -5,3 +5,7 @@ priv/js/angular/
 priv/js/ui-router/
 *.beam
 *.dump
+tests/rabbit_common*
+tests/amqp_client*
+amqp_client
+rabbit_common
