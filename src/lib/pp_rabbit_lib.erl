@@ -1,7 +1,8 @@
 %% -*- mode: nitrogen -*-
 -module(pp_rabbit_lib).
 -export([connect/0, connect/1, disconnect/1, channel/1, close_channel/1,
-    queue_declare/2, queue_declare/3, queue_declare_exclusive/1, queue_bind/3, 
+    queue_declare/2, queue_declare/3, queue_declare_exclusive/1,
+    queue_bind/3, queue_bind/4, 
     exchange_declare/2, basic_publish/4, basic_publish/5,
     basic_qos/2, basic_consume/2, basic_consume_ack/2, ack/2, 
     got_msg/0, got_msg/1]).
@@ -40,10 +41,16 @@ queue_bind(Exchange, Queue, {?MODULE, Channel}) ->
     amqp_channel:call(Channel, #'queue.bind'{exchange = pp:to_binary(Exchange),
         queue = pp:to_binary(Queue)}).
 
+queue_bind(Exchange, BindingKey, Queue, {?MODULE, Channel}) ->
+    amqp_channel:call(Channel, #'queue.bind'{exchange = pp:to_binary(Exchange),
+        routing_key = list_to_binary(BindingKey),
+        queue = Queue}).
+
 exchange_declare(Exchange, {?MODULE, Channel}) ->
     amqp_channel:call(Channel, #'exchange.declare'{exchange = pp:to_binary(Exchange),
         type = pp:to_binary(Exchange)}).
 
+%% default delivery as persit mode(2)
 basic_publish(Exchange, RoutingKey, Body, {?MODULE, Channel}) ->
     basic_publish(Exchange, RoutingKey, 2, Body, {?MODULE, Channel}).
 
