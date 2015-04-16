@@ -133,7 +133,7 @@ rpc_call(RpcName, Param, Ch) ->
     after 10000 -> rpc_timeout end.
 
 %% rpc call by direct queue/routing_key
-rpc_reg(RpcName, Fun, Ch) ->
+rpc_reg(RpcName, Fun, Ch) when is_function(Fun) ->
     Pid = spawn_link(fun() ->
         %% register a rpc call as routing_key
         Queue = Ch:queue_declare(RpcName),
@@ -150,8 +150,12 @@ rpc_handle(Fun, Ch) ->
         {#'basic.deliver'{delivery_tag = Tag}, #amqp_msg{
             payload = Body,
             props = #'P_basic'{reply_to = ReplyTo}}} ->  % pp:display({replyto, ReplyTo}),
-            Result = apply(Fun, jiffy:decode(Body)),     % pp:display({result, Result}),
-            Ch:basic_publish(<<"">>, ReplyTo, Result),
+            Result = try apply(Fun, jiffy:decode(Body)) of
+                R -> R
+            catch
+                _:E -> {error, E}
+            end,
+            Ch:basic_publish(<<"">>, ReplyTo, pp:confirm_json(Result)),
             Ch:ack(Tag),                                 % pp:display({tag, Tag}),
 
             rpc_handle(Fun, Ch);
