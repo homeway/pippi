@@ -3,11 +3,11 @@
 -export([connect/0, connect/1, disconnect/1, channel/1, close_channel/1,
     queue_delete/2, exchange_delete/2,
     queue_declare/1, queue_declare/2, queue_declare/3,
-    queue_bind/3, queue_bind/4,
+    queue_bind/3, queue_bind/4, queue_unbind/3, queue_unbind/4,
     exchange_declare/3, basic_publish/4, basic_publish/5,
     basic_qos/2, ack/2, basic_consume/2, basic_consume/3, basic_consume_ack/2, basic_consume_ack/3, basic_consume_cancel/2,
     got_msg/0, got_msg/1,
-    service_call/3, service_call/4, service_reg/5,
+    service_call/3, service_call/4, service_reg/5, service_unreg/1,
     rpc_call/3, rpc_reg/3, rpc_stop/2]).
 
 -include_lib("amqp_client/include/amqp_client.hrl").
@@ -29,7 +29,7 @@ close_channel({?MODULE, Channel}) ->
     ok = amqp_channel:close(Channel).
 
 queue_declare({?MODULE, Channel}) ->
-    case amqp_channel:call(Channel, #'queue.declare'{exclusive = true, auto_delete = true}) of
+    case amqp_channel:call(Channel, #'queue.declare'{exclusive = true}) of
         #'queue.declare_ok'{queue = Queue} -> Queue;
         Reason -> Reason
     end.
@@ -48,11 +48,20 @@ queue_delete(Queue, {?MODULE, Channel}) ->
     #'queue.delete_ok'{} = amqp_channel:call(Channel, Delete).
 
 queue_bind(Exchange, Queue, {?MODULE, Channel}) ->
-    amqp_channel:call(Channel, #'queue.bind'{exchange = pp:to_binary(Exchange),
+    #'queue.bind_ok'{} = amqp_channel:call(Channel, #'queue.bind'{exchange = pp:to_binary(Exchange),
         queue = pp:to_binary(Queue)}).
 
 queue_bind(Exchange, BindingKey, Queue, {?MODULE, Channel}) ->
-    amqp_channel:call(Channel, #'queue.bind'{exchange = pp:to_binary(Exchange),
+    #'queue.bind_ok'{} = amqp_channel:call(Channel, #'queue.bind'{exchange = pp:to_binary(Exchange),
+        routing_key = pp:to_binary(BindingKey),
+        queue = pp:to_binary(Queue)}).
+
+queue_unbind(Exchange, Queue, {?MODULE, Channel}) ->
+    #'queue.unbind_ok'{} = amqp_channel:call(Channel, #'queue.unbind'{exchange = pp:to_binary(Exchange),
+        queue = pp:to_binary(Queue)}).
+
+queue_unbind(Exchange, BindingKey, Queue, {?MODULE, Channel}) ->
+    #'queue.unbind_ok'{} = amqp_channel:call(Channel, #'queue.unbind'{exchange = pp:to_binary(Exchange),
         routing_key = pp:to_binary(BindingKey),
         queue = pp:to_binary(Queue)}).
 
@@ -173,11 +182,11 @@ rpc_call(RpcName, Param, Ch) ->
 %% amqp can use many service for a special exchange-routing
 %% so service_call cannot use rpc mode, it only acceept async respond
 %%
-service_call(Exchange, Param, Ch) ->
-    Ch:basic_publish(Exchange, <<"">>, Param).
+service_call(X, Param, Ch) ->
+    Ch:basic_publish(X, <<"">>, Param).
 
-service_call(Exchange, RoutingKey, Param, Ch) ->
-    Ch:basic_publish(Exchange, RoutingKey, Param).
+service_call(X, Key, Param, Ch) ->
+    Ch:basic_publish(X, Key, Param).
 
 %% simple queue
 rpc_reg(RpcName, Fun, Ch) when is_function(Fun) ->
@@ -209,23 +218,24 @@ rpc_handle(Fun, Ch) ->
     end.
 
 %% Type :: direct | fanout | topic
-service_reg(Exchange, RoutingKey, Type, ServiceFun, Ch)
+service_reg(X, Key, Type, ServiceFun, Ch)
   when is_function(ServiceFun) ->
-
-    Pid = spawn_link(fun() ->
+    Self = self(),
+    spawn_link(fun() ->
         %% register a rpc call as routing_key
-        Ch:exchange_declare(Exchange, Type),
+        Ch:exchange_declare(X, Type),
         Queue = Ch:queue_declare(),
         case Type of
-            fanout -> Ch:queue_bind(Exchange, Queue);
-            direct -> Ch:queue_bind(Exchange, RoutingKey, Queue);
-            topic  -> Ch:queue_bind(Exchange, RoutingKey, Queue)
+            fanout -> Ch:queue_bind(X, Queue);
+            direct -> Ch:queue_bind(X, Key, Queue);
+            topic  -> Ch:queue_bind(X, Key, Queue)
         end,
         Ch:basic_qos(#{}),
-        Ch:basic_consume(Queue),
+        Tag = Ch:basic_consume(Queue),
+        Self ! {?MODULE, Type, X, Key, Queue, Tag, Ch},
         service_handle(ServiceFun, Ch)
     end),
-    Pid.
+    receive M -> M after 500 -> timeout end.
 
 %% handle loop
 service_handle(ServiceFun, Ch) ->
@@ -239,5 +249,15 @@ service_handle(ServiceFun, Ch) ->
         Reason ->
             Reason
     end.
+
+service_unreg({?MODULE, Type, X, Key, Queue, Tag, Ch}) ->
+    case pp:to_binary(Type) of
+        <<"fanout">> ->
+            Ch:queue_unbind(X, Queue);
+        _ ->
+            Ch:queue_unbind(X, Key, Queue)
+    end,
+    Ch:basic_consume_cancel(Tag),
+    Ch:queue_delete(Queue).
 
 rpc_stop(Pid, _Ch) -> Pid ! stop.
