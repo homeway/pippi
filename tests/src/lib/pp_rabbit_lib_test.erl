@@ -6,7 +6,7 @@ main_test() ->
     Conn = pp_rabbit_lib:connect(),
     Ch = Conn:channel(),
     %% clear exchanges and queues to test
-    Exchanges = [],
+    Exchanges = [<<"ex1">>],
     Queues = [test_add],
     [ Ch:exchange_delete(E) || E <- Exchanges ],
     [ Ch:queue_delete(Q) || Q <- Queues],
@@ -25,8 +25,12 @@ main_test() ->
     ?assertMatch({_, <<"4">>}, Ch:rpc_call(test_add, [1,2])),
     ?assertMatch({_, <<"3">>}, Ch:rpc_call(test_add, [1,2])),
     ?assertMatch({_, <<"4">>}, Ch:rpc_call(test_add, [1,2])),
-    ?assertMatch({_, <<"3">>}, Ch:rpc_call(test_add, [1,2])),
-    ?assertMatch({_, <<"4">>}, Ch:rpc_call(test_add, [1,2])),
 
-    %% service call
+    %% service call - fanout
+%    Ch:service_reg(<<"ex1">>, <<"abc">>, direct, Add1),
+
+%    Ch:service_reg(ex1, <<"abc">>, direct, Add2, fun(R) ->
+%        ok%?assertMatch(1, 1) %{_, <<"4">>}, R)
+%    end),
+%    Ch:basic_publish(<<"ex1">>, <<"abc">>, #{}, [1,2]),
     ok.

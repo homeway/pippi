@@ -5,9 +5,9 @@
     queue_declare/1, queue_declare/2, queue_declare/3,
     queue_bind/3, queue_bind/4,
     exchange_declare/3, basic_publish/4, basic_publish/5,
-    basic_qos/2, ack/2, basic_consume/2, basic_consume/3, basic_consume_ack/2, basic_consume_ack/3,
+    basic_qos/2, ack/2, basic_consume/2, basic_consume/3, basic_consume_ack/2, basic_consume_ack/3, basic_consume_cancel/2,
     got_msg/0, got_msg/1,
-    service_call/3, service_call/4, service_reg/6,
+    service_call/3, service_call/4, service_reg/5,
     rpc_call/3, rpc_reg/3, rpc_stop/2]).
 
 -include_lib("amqp_client/include/amqp_client.hrl").
@@ -29,7 +29,7 @@ close_channel({?MODULE, Channel}) ->
     ok = amqp_channel:close(Channel).
 
 queue_declare({?MODULE, Channel}) ->
-    case amqp_channel:call(Channel, #'queue.declare'{exclusive = true}) of
+    case amqp_channel:call(Channel, #'queue.declare'{exclusive = true, auto_delete = true}) of
         #'queue.declare_ok'{queue = Queue} -> Queue;
         Reason -> Reason
     end.
@@ -53,14 +53,16 @@ queue_bind(Exchange, Queue, {?MODULE, Channel}) ->
 
 queue_bind(Exchange, BindingKey, Queue, {?MODULE, Channel}) ->
     amqp_channel:call(Channel, #'queue.bind'{exchange = pp:to_binary(Exchange),
-        routing_key = list_to_binary(BindingKey),
-        queue = Queue}).
+        routing_key = pp:to_binary(BindingKey),
+        queue = pp:to_binary(Queue)}).
 
 exchange_declare(Exchange, Type, {?MODULE, Channel}) ->
+    % erlang:display({Exchange, Type}),
     {'exchange.declare_ok'} =
     amqp_channel:call(Channel, #'exchange.declare'{
         exchange = pp:to_binary(Exchange),
-        type = pp:to_binary(Type)}).
+        type = pp:to_binary(Type)
+    }).
 
 exchange_delete(Exchange, {?MODULE, Channel}) ->
     Delete = #'exchange.delete'{exchange = pp:to_binary(Exchange)},
@@ -78,8 +80,8 @@ basic_publish(Exchange, RoutingKey, Props, Body, {?MODULE, Channel}) ->
             routing_key = pp:to_binary(RoutingKey)},
         #amqp_msg{props = #'P_basic'{
             delivery_mode = maps:get(delivery_mode, Props, 2),
-            reply_to = maps:get(reply_to, Props, <<"">>),
-            correlation_id = maps:get(id, Props, <<"">>)},
+            reply_to = maps:get(reply_to, Props, undefined),
+            correlation_id = maps:get(id, Props, undefined)},
             payload = jiffy:encode(Body)}).
 
 basic_qos(Options, {?MODULE, Channel}) ->
@@ -89,13 +91,15 @@ basic_consume(RoutingKey, Ch) ->
     Ch:basic_consume(RoutingKey, self()).
 
 basic_consume(RoutingKey, From, {?MODULE, Channel}) ->
+    Tag = pp:uuid(),
     amqp_channel:subscribe(Channel,
         #'basic.consume'{
             queue = pp:to_binary(RoutingKey),
+            consumer_tag = Tag,
             no_ack = true},
         From),
     receive
-        #'basic.consume_ok'{} -> ok
+        #'basic.consume_ok'{} -> Tag
     after 100 -> {error, no_consume_ok} end.
 
 basic_consume_ack(RoutingKey, Ch) ->
@@ -108,7 +112,14 @@ basic_consume_ack(RoutingKey, From, {?MODULE, Channel}) ->
         From),
     receive
         #'basic.consume_ok'{} -> ok
-    after 100 -> {error, no_consume_ok} end.
+    after 100 -> {error, consume_timeout} end.
+
+basic_consume_cancel(Tag, {?MODULE, Channel}) ->
+    amqp_channel:call(Channel, #'basic.cancel'{consumer_tag = Tag}),
+    receive
+        #'basic.cancel_ok'{} -> ok
+    after 100 -> {error, consume_cancel_timeout} end.
+
 
 ack(Tag, {?MODULE, Channel}) ->
     amqp_channel:cast(Channel, #'basic.ack'{delivery_tag = Tag}).
@@ -140,18 +151,23 @@ rpc_call(RpcName, Param, Ch) ->
     spawn_link(fun() ->
         %% accept response queue
         Queue = Ch:queue_declare(),
-        % pp:display({rpc_call, Queue}),
-        %% return message to self()
-        Ch:basic_consume(Queue),
+        %% return message to spawned process
+        Tag = Ch:basic_consume(Queue),
         %% publish call
         Ch:basic_publish(<<"">>, RpcName, #{reply_to=>Queue}, Param),
         %% wait rpc server for 1 secs
         %% client can do with it manual for more time waiting
-        Pid ! {Ref, got_msg(1000)}
+        Msg = got_msg(5000),
+        Pid ! {Ref, Msg},
+        Ch:basic_consume_cancel(Tag),
+        Ch:queue_delete(Queue)
     end),
-    receive
-        {Ref, Msg} -> Msg
-    after 10000 -> rpc_timeout end.
+    R = receive
+        {Ref, Msg} ->
+            Msg
+    after 5000 -> rpc_timeout end,
+
+    R.
 
 %% routing_key call by direct,fanout or topic
 %% amqp can use many service for a special exchange-routing
@@ -169,7 +185,7 @@ rpc_reg(RpcName, Fun, Ch) when is_function(Fun) ->
         %% register a rpc call as routing_key
         Queue = Ch:queue_declare(RpcName),
         Ch:basic_qos(#{}),
-        Ch:basic_consume_ack(Queue),
+        Ch:basic_consume(Queue),
         rpc_handle(Fun, Ch)
     end),
     Pid.
@@ -178,18 +194,14 @@ rpc_reg(RpcName, Fun, Ch) when is_function(Fun) ->
 rpc_handle(Fun, Ch) ->
     receive
         stop -> ok;
-        {#'basic.deliver'{delivery_tag = Tag}, #amqp_msg{
-            payload = Body,
-            props = #'P_basic'{reply_to = ReplyTo}}} ->
-
+        {_, #amqp_msg{payload = Body, props = #'P_basic'{reply_to = ReplyTo}}} ->
             spawn_link(fun() ->
                 Result = try apply(Fun, jiffy:decode(Body)) of
                     R -> R
                 catch
                     _:E -> {error, E}
                 end,
-                Ch:basic_publish(<<"">>, ReplyTo, jiffy:encode(pp:confirm_json(Result))),
-                Ch:ack(Tag)
+                Ch:basic_publish(<<"">>, ReplyTo, jiffy:encode(pp:confirm_json(Result)))
             end),
             rpc_handle(Fun, Ch);
         Reason ->
@@ -197,8 +209,8 @@ rpc_handle(Fun, Ch) ->
     end.
 
 %% Type :: direct | fanout | topic
-service_reg(Exchange, RoutingKey, Type, ServiceFun, CallFun, Ch)
-  when is_function(ServiceFun) and is_function(CallFun) ->
+service_reg(Exchange, RoutingKey, Type, ServiceFun, Ch)
+  when is_function(ServiceFun) ->
 
     Pid = spawn_link(fun() ->
         %% register a rpc call as routing_key
@@ -211,24 +223,19 @@ service_reg(Exchange, RoutingKey, Type, ServiceFun, CallFun, Ch)
         end,
         Ch:basic_qos(#{}),
         Ch:basic_consume(Queue),
-        service_handle(ServiceFun, CallFun, Ch)
+        service_handle(ServiceFun, Ch)
     end),
     Pid.
 
 %% handle loop
-service_handle(ServiceFun, CallFun, Ch) ->
+service_handle(ServiceFun, Ch) ->
     receive
         stop -> ok;
         {#'basic.deliver'{}, #amqp_msg{payload = Body}} ->
             spawn_link(fun() ->
-                Result = try apply(ServiceFun, jiffy:decode(Body)) of
-                    R -> R
-                catch
-                    _:E -> {error, E}
-                end,
-                CallFun(Result)
+                apply(ServiceFun, jiffy:decode(Body))
             end),
-            service_handle(ServiceFun, CallFun, Ch);
+            service_handle(ServiceFun, Ch);
         Reason ->
             Reason
     end.
