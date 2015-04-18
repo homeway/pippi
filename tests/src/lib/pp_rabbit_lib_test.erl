@@ -64,8 +64,12 @@ main_test() ->
     ?assertMatch(4, got_msg(1000)),
     ?assertMatch(4, got_msg(1000)),
 
+    %% clear
+    [ Ch:exchange_delete(E) || E <- Exchanges ],
+    [ Ch:queue_delete(Q) || Q <- Queues],
     [S:service_unreg() || S <- [S1, S3, S4, S5, S6]],
-
+    Ch:close_channel(),
+    Conn:disconnect(),
     flush(),
     ok.
 

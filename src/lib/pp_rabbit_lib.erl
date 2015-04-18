@@ -224,7 +224,7 @@ service_reg(X, Key, Type, ServiceFun, Ch)
     spawn_link(fun() ->
         %% register a rpc call as routing_key
         Ch:exchange_declare(X, Type),
-        Queue = Ch:queue_declare(),
+        Queue = Ch:queue_declare(<< (pp:to_binary(Key))/binary, ".", (pp:uuid())/binary >>),
         case Type of
             fanout -> Ch:queue_bind(X, Queue);
             direct -> Ch:queue_bind(X, Key, Queue);
