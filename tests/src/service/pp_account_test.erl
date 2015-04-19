@@ -30,7 +30,7 @@ prepare() ->
     R = nosqlite:table(pp_role),
     Roles = [
         {everyone, #{methods=> [[users, [all, get, size]]]}},
-        {editor, #{methods=> [[users, [create, update]]]}},
+        {editor, #{methods=> [[users, [create, update]], [rpc, ['test.add5', 'test.add6']]]}},
         {admin, #{methods=> [users]}}
     ],
     [R:create(Id, Role) || {Id, Role} <- Roles].
@@ -57,7 +57,10 @@ login_test() ->
     ?assertMatch({online, #{user := <<"adi">>}}, A1:status()),
 
     %% 获取授权更新
-    ?assertMatch([[users, [all, get, size]], [users, [create, update]]],
+    ?assertMatch([
+        [users, [all, get, size]],
+        [users, [create, update]],
+        [rpc,   ['test.add5', 'test.add6']]],
         A1:methods()),
 
     %% 已登录时的错误操作

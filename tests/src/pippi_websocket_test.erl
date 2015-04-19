@@ -1,6 +1,12 @@
 %% -*- mode: nitrogen -*-
 -module(pippi_websocket_test).
+-export([myadd1/2, myadd2/2]).
 -include_lib("eunit/include/eunit.hrl").
+
+-define(TabServer, test_rabbit_rpc_server).
+-define(TabClient, test_rabbit_rpc_client).
+myadd1(A, B) -> A + B.
+myadd2(A, B) -> A + B + 1.
 
 clear_msg() ->
     receive  _Msg -> clear_msg()
@@ -69,6 +75,32 @@ main_test() ->
     %% call {nosqlite, users}:create(1, #{name=>adi})
     Ws:send_text(ws_req([[<<"nosqlite">>, <<"users">>], <<"create">>, [<<"1">>, #{name=>adi}]])),
     ?assertMatch({text, <<"ok">>}, ws_resp()),
+
+    %% rpc over pp_rabbit/amqp
+    %%
+
+    %% config pp_rabbit
+    nosqlite:create_table(?TabServer, ram),
+    nosqlite:create_table(?TabClient, ram),
+    Servers = [
+        {'test.add5', ?MODULE, myadd1, 2},
+        {'test.add6', ?MODULE, myadd2, 2}
+    ],
+    pp_rabbit:reg_rpc_tab_server(?TabServer, Servers),
+
+    Clients = ['test.add5', 'test.add6'],
+    pp_rabbit:reg_rpc_tab_client(?TabClient, Clients),
+
+    %% start pp_rabbit
+    pp_rabbit:start(?TabClient, ?TabServer),
+
+    %% test rpc call with user adi/editor
+    clear_msg(),
+    Ws:send_text(ws_req([rpc, 'test.add5', [1, 2]])),
+    ?assertMatch({text, <<"3">>}, ws_resp()),
+
+    %% stop pp_rabbit
+    pp_rabbit:stop(),
 
     %% logout
     clear_msg(),

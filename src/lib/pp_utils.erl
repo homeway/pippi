@@ -53,6 +53,8 @@ uuid() ->
 allow([M, F], Methods) -> allow([M, F, []], Methods);
 
 %% nosqlite mfa
+allow([rpc, F, A], Methods) ->
+    lists:any(fun(I) -> allow_item([rpc, F, A], I) end, Methods);
 allow([{nosqlite, M}, F, A], Methods) ->
     code:ensure_loaded(nosqlite),
     case erlang:function_exported(nosqlite, F, length(A) + 1) of

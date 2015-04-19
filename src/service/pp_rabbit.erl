@@ -184,7 +184,6 @@ handle_call(rpc_servers, _F, #{servers:=Servers}=S) ->
     {reply, Servers, S};
 
 handle_call({rpc_call, Q, P}, _F, #{clients:=Clients}=S) when is_binary(P)->
-    pp:display(Clients),
     case maps:get(pp:to_binary(Q), Clients, undefined) of
         undefined -> {reply, undefined, S};
         Client ->

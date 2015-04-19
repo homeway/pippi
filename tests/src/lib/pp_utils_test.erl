@@ -62,9 +62,9 @@ allow_test() ->
     ?assertNot(pp:allow([orders1, send, [<<"001">>, <<"002">>]], Methods)),
     ?assert(pp:allow([orders1, send, [<<"001">>, <<"abc">>]], Methods)).
 
-en_de_pass_test() ->
-    Str = <<"123456">>,
-    Pass = <<"45,-48,-60,-95,40,126,-44,121,">>,
-    ?assertEqual(Pass, pp_utils:en_pass(Str)),
-    ?assertEqual(Str, pp_utils:de_pass(Pass)).
+% en_de_pass_test() ->
+%     Str = <<"123456">>,
+%     Pass = <<"45,-48,-60,-95,40,126,-44,121,">>,
+%     ?assertEqual(Pass, pp_utils:en_pass(Str)),
+%     ?assertEqual(Str, pp_utils:de_pass(Pass)).
 
