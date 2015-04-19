@@ -52,10 +52,10 @@ main_test() ->
         {add5, ?MODULE, myadd1, 2},
         {add6, ?MODULE, myadd2, 2}
     ],
-    pp_rabbit:reg_auto_server(?TabServer, Servers),
+    pp_rabbit:reg_rpc_tab_server(?TabServer, Servers),
 
     Clients = [add5, add6],
-    pp_rabbit:reg_auto_client(?TabClient, Clients),
+    pp_rabbit:reg_rpc_tab_client(?TabClient, Clients),
 
     %% start
     pp_rabbit:start(?TabClient, ?TabServer),
@@ -63,6 +63,8 @@ main_test() ->
     %% test rpc call
     ?assertMatch(<<"3">>, pp_rabbit:rpc_call(add5, [1,2])),
     ?assertMatch(<<"4">>, pp_rabbit:rpc_call(add6, [1,2])),
+
+    ?assertMatch(#{<<"add5">> := _}, pp_rabbit:rpc_clients()),
 
     %% manul rpc server and client
     manual_rpc(),

@@ -19,8 +19,7 @@
 -export([start/0, start/2, stop/0, start_link/0, start_link/2, rpc_call/2]).
 -export([reg_rpc_server/2, reg_rpc_server/4, unreg_rpc_server/1,
     reg_rpc_client/1, unreg_rpc_client/1,
-    reg_auto_server/2, unreg_auto_server/2,
-    reg_auto_client/2, unreg_auto_client/2,
+    reg_rpc_tab_server/2, reg_rpc_tab_client/2, unreg_rpc_tab/2,
     rpc_clients/0, rpc_servers/0]).
 
 %% gen_server callbacks
@@ -103,7 +102,7 @@ unreg_rpc_client(Q) ->
     gen_server:call(?SERVER, {unreg_rpc_client, Q}).
 
 %% prepare to auto register rpc server by erlang
-reg_auto_server(TabName, Servers) ->
+reg_rpc_tab_server(TabName, Servers) ->
     Tab = nosqlite:table(TabName),
     lists:foreach(fun({N, M, F, C}) ->
         Item = #{module=>M, func=>F, count=>C},
@@ -114,7 +113,7 @@ reg_auto_server(TabName, Servers) ->
     end, Servers),
     ok.
 
-reg_auto_client(TabName, Queues) ->
+reg_rpc_tab_client(TabName, Queues) ->
     Tab = nosqlite:table(TabName),
     lists:foreach(fun(Q) ->
         Item = #{queue=>Q},
@@ -125,13 +124,8 @@ reg_auto_client(TabName, Queues) ->
     end, Queues),
     ok.
 
-unreg_auto_server(Tab, Queues) ->
-    [ Tab:delete(Q) || Q <- Queues],
-    ok.
-
-unreg_auto_client(Tab, Queues) ->
-    [ Tab:delete(Q) || Q <- Queues],
-    ok.
+unreg_rpc_tab(TabName, Queues) ->
+    [{nosqlite, TabName}:delete(Q) || Q <- Queues], ok.
 
 %% status
 rpc_clients() ->
