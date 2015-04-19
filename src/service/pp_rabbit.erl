@@ -16,11 +16,12 @@
 -behaviour(gen_server).
 
 %% API
--export([start/0, stop/0, start_link/0, rpc_call/2]).
+-export([start/0, start/2, stop/0, start_link/0, start_link/2, rpc_call/2]).
 -export([reg_rpc_server/2, reg_rpc_server/4, unreg_rpc_server/1,
     reg_rpc_client/1, unreg_rpc_client/1,
-    reg_auto_rpc_server/4, unreg_auto_rpc_server/1,
-    reg_auto_rpc_client/1, unreg_auto_rpc_client/1]).
+    reg_auto_server/2, unreg_auto_server/2,
+    reg_auto_client/2, unreg_auto_client/2,
+    rpc_clients/0, rpc_servers/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -30,21 +31,27 @@
 
 -define(AMQP_CLIENT_TEST_CONNECTION_TYPE, "network").
 -define(SERVER, ?MODULE).
+-define(TabServer, pp_rabbit_servers).
+-define(TabClient, pp_rabbit_clients).
 
 %%%===============================================================
 %%% API
 %%%===============================================================
 
 start() ->
-    gen_server:start({local, ?SERVER}, ?MODULE, [], []).
+    start(?TabClient, ?TabServer).
+start(TabClient, TabServer) ->
+    gen_server:start({local, ?SERVER}, ?MODULE, [TabClient, TabServer], []).
 
 start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+    start_link(?TabClient, ?TabServer).
+start_link(TabClient, TabServer) ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [TabClient, TabServer], []).
 
 stop() ->
     gen_server:cast(?SERVER, stop).
 
-init(_) ->
+init([TabClient, TabServer]) ->
     Params = make_network_params([]),
     {ok, Conn} = amqp_connection:start(Params),
     case erlang:is_process_alive(Conn) of
@@ -52,7 +59,30 @@ init(_) ->
         true ->
             link(Conn),
             pp:display({amqp_connection, Conn}),
-            {ok, #{connect => Conn, clients => #{}, servers => #{}}}
+            %% init clients and servers
+            Servers1 = {nosqlite, TabServer}:all(),
+            Servers2 = lists:map(fun([Q,
+                #{
+                    <<"module">> := M,
+                    <<"func">> := F,
+                    <<"count">> := C
+                },
+                #{}]) ->
+                    M1 = pp:to_atom(M),
+                    F1 = pp:to_atom(F),
+                    Pid = amqp_rpc_server:start_link(Conn, pp:to_binary(Q), rpc_handler(fun M1:F1/C)),
+                    {Q, Pid}
+                end, Servers1),
+            Servers3 = maps:from_list(Servers2),
+
+            Clients1 = {nosqlite, TabClient}:all_keys(),
+            Clients2 = lists:map(fun(Q) ->
+                Pid = amqp_rpc_client:start_link(Conn, Q),
+                {Q, Pid}
+            end, Clients1),
+            Clients3 = maps:from_list(Clients2),
+
+            {ok, #{connect => Conn, clients => Clients3, servers => Servers3}}
     end.
 
 %% register a rpc server:
@@ -73,17 +103,42 @@ unreg_rpc_client(Q) ->
     gen_server:call(?SERVER, {unreg_rpc_client, Q}).
 
 %% prepare to auto register rpc server by erlang
-reg_auto_rpc_server(Q, M, F, Count) ->
-    ok.
-unreg_auto_rpc_server(Q) ->
+reg_auto_server(TabName, Servers) ->
+    Tab = nosqlite:table(TabName),
+    lists:foreach(fun({N, M, F, C}) ->
+        Item = #{module=>M, func=>F, count=>C},
+        case Tab:get(N) of
+            not_found -> Tab:create(N, Item);
+            _ -> Tab:update(N, Item)
+        end
+    end, Servers),
     ok.
 
-%% prepare to auto register rpc client
-%% the rpc service can be supply by none-erlang process
-reg_auto_rpc_client(Q) ->
+reg_auto_client(TabName, Queues) ->
+    Tab = nosqlite:table(TabName),
+    lists:foreach(fun(Q) ->
+        Item = #{queue=>Q},
+        case Tab:get(Q) of
+            not_found -> Tab:create(Q, Item);
+            _ -> Tab:update(Q, Item)
+        end
+    end, Queues),
     ok.
-unreg_auto_rpc_client(Q) ->
+
+unreg_auto_server(Tab, Queues) ->
+    [ Tab:delete(Q) || Q <- Queues],
     ok.
+
+unreg_auto_client(Tab, Queues) ->
+    [ Tab:delete(Q) || Q <- Queues],
+    ok.
+
+%% status
+rpc_clients() ->
+    gen_server:call(?SERVER, rpc_clients).
+
+rpc_servers() ->
+    gen_server:call(?SERVER, rpc_servers).
 
 %% rpc client call
 rpc_call(Q, Params) ->
@@ -96,13 +151,7 @@ rpc_call(Q, Params) ->
 handle_call(status, _F, S) -> {reply, S, S};
 
 handle_call({reg_rpc_server, Q, Func}, _F, #{connect:=Conn, servers:=Servers}=S) ->
-    RPCHandler = fun(X) ->
-        try jiffy:encode(apply(Func, jiffy:decode(X))) of
-            Res1 -> Res1
-        catch
-            _:_ -> <<"error">>
-        end
-    end,
+    RPCHandler = rpc_handler(Func),
     Server = amqp_rpc_server:start_link(Conn, pp:to_binary(Q), RPCHandler),
     erlang:display({reg_rpc_server, Q, Server}),
     NewServers = maps:put(pp:to_binary(Q), Server, Servers),
@@ -133,6 +182,12 @@ handle_call({unreg_rpc_client, Q}, _F, #{clients:=Clients}=S) ->
             NewClients = maps:remove(pp:to_binary(Q), Clients),
             {reply, ok, S#{clients=>NewClients}}
     end;
+
+handle_call(rpc_clients, _F, #{clients:=Clients}=S) ->
+    {reply, Clients, S};
+
+handle_call(rpc_servers, _F, #{servers:=Servers}=S) ->
+    {reply, Servers, S};
 
 handle_call({rpc_call, Q, P}, _F, #{clients:=Clients}=S) when is_binary(P)->
     pp:display(Clients),
@@ -177,11 +232,22 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %% Note: not all amqp_params_network fields supported.
 make_network_params(Props) ->
     Pgv = fun (Key, Default) ->
-                  proplists:get_value(Key, Props, Default)
-          end,
-    #amqp_params_network{username     = Pgv(username, <<"guest">>),
-                         password     = Pgv(password, <<"guest">>),
-                         virtual_host = Pgv(virtual_host, <<"/">>),
-                         channel_max  = Pgv(channel_max, 0),
-                         ssl_options  = Pgv(ssl_options, none),
-                         host         = Pgv(host, "localhost")}.
+        proplists:get_value(Key, Props, Default)
+    end,
+    #amqp_params_network{
+        username     = Pgv(username, <<"guest">>),
+        password     = Pgv(password, <<"guest">>),
+        virtual_host = Pgv(virtual_host, <<"/">>),
+        channel_max  = Pgv(channel_max, 0),
+        ssl_options  = Pgv(ssl_options, none),
+        host         = Pgv(host, "localhost")
+    }.
+
+rpc_handler(Func) ->
+    fun(X) ->
+        try jiffy:encode(apply(Func, jiffy:decode(X))) of
+            Res1 -> Res1
+        catch
+            _:_ -> <<"error">>
+        end
+    end.
