@@ -82,6 +82,12 @@ call([<<"nosqlite">>, M0], F0, A, Methods) ->
         true -> apply({nosqlite, M}, F, A);
         _ -> {error, deny}
     end;
+call(<<"rpc">>, F0, A, Methods) ->
+    F = pp:to_atom(F0),
+    case pp:allow([rpc, F, A], Methods) of
+        true -> pp_rabbit:rpc_call(F, A);
+        _ -> {error, deny}
+    end;
 call(M0, F0, A, Methods) ->
     M = pp:to_atom(M0),
     F = pp:to_atom(F0),
